@@ -1,0 +1,6 @@
+# MediFlow AI - Python Dependencies
+# Phase 1: Core Dashboard Stack
+
+streamlit>=1.30.0
+pandas>=2.0.0
+plotly>=5.18.0
