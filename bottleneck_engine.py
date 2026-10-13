@@ -600,6 +600,31 @@ class StaffDepartmentWorkload:
     shift_window: str
     eligible_cross_units: List[str]
 
+    @property
+    def workload_to_staff_ratio(self) -> float:
+        """Alias for workload_per_staff with safe zero division protection."""
+        if hasattr(self, "workload_per_staff"):
+            return self.workload_per_staff
+        if self.staff_on_duty > 0:
+            return round(self.workload_units / self.staff_on_duty, 2)
+        return 0.0
+
+    @property
+    def staff_count(self) -> int:
+        return self.staff_on_duty
+
+    @property
+    def occupied_beds(self) -> int:
+        return self.occupied
+
+    @property
+    def capacity_beds(self) -> int:
+        return self.capacity
+
+    @property
+    def acuity_multiplier(self) -> float:
+        return self.acuity_weight
+
 
 @dataclass
 class StaffRebalanceRecommendation:
@@ -615,6 +640,22 @@ class StaffRebalanceRecommendation:
     feasibility_status: str
     projected_recipient_workload: float
     clinical_advisory: str
+
+    @property
+    def nurses_to_rebalance(self) -> int:
+        return self.staff_to_move
+
+    @property
+    def rationale(self) -> str:
+        return self.clinical_advisory
+
+    @property
+    def qualification_match(self) -> str:
+        return self.staff_qualification
+
+    @property
+    def donor_floor_safety(self) -> str:
+        return f"Donor retains {self.donor_remaining_staff} staff (safety floor: {self.donor_min_floor})"
 
 
 def evaluate_staff_workload_imbalance(

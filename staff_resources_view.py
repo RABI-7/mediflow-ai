@@ -42,9 +42,18 @@ def render_staff_resources(
 
     # Key Staffing Metrics Row
     tot_staff = summary.get("staff_on_duty", 64)
-    avg_ratio = round(sum(w.workload_to_staff_ratio for w in workloads) / max(1, len(workloads)), 2)
-    strained_depts = [w for w in workloads if w.status == "CRITICAL" or w.status == "HIGH_WORKLOAD"]
-    balanced_depts = [w for w in workloads if w.status == "NORMAL" or w.status == "BALANCED"]
+    ratios = []
+    for w in workloads:
+        r = getattr(w, "workload_per_staff", getattr(w, "workload_to_staff_ratio", None))
+        if r is None:
+            s_count = getattr(w, "staff_on_duty", getattr(w, "staff_count", 0))
+            w_units = getattr(w, "workload_units", 0.0)
+            r = round(w_units / s_count, 2) if s_count > 0 else 0.0
+        ratios.append(r)
+    avg_ratio = round(sum(ratios) / max(1, len(ratios)), 2) if ratios else 0.0
+
+    strained_depts = [w for w in workloads if getattr(w, "status", "") in ("CRITICAL", "WARNING", "HIGH_WORKLOAD")]
+    balanced_depts = [w for w in workloads if getattr(w, "status", "") in ("OPTIMAL", "NORMAL", "BALANCED")]
 
     c1, c2, c3, c4 = st.columns(4)
     with c1:
@@ -84,15 +93,24 @@ def render_staff_resources(
 
     workload_rows = []
     for w in workloads:
+        staff_val = getattr(w, "staff_on_duty", getattr(w, "staff_count", 0))
+        occ_val = getattr(w, "occupied", getattr(w, "occupied_beds", 0))
+        cap_val = getattr(w, "capacity", getattr(w, "capacity_beds", 0))
+        acuity_val = getattr(w, "acuity_weight", getattr(w, "acuity_multiplier", 1.0))
+        units_val = getattr(w, "workload_units", occ_val * acuity_val)
+        ratio_val = getattr(w, "workload_per_staff", getattr(w, "workload_to_staff_ratio", None))
+        if ratio_val is None:
+            ratio_val = round(units_val / staff_val, 2) if staff_val > 0 else 0.0
+
         workload_rows.append({
-            "Department": w.department,
-            "Active Staff": w.staff_count,
-            "Min Safety Floor": w.min_staff_floor,
-            "Inpatient Occupancy": f"{w.occupied_beds} / {w.capacity_beds}",
-            "Acuity Multiplier": f"{w.acuity_multiplier:.1f}x",
-            "Workload Units": f"{w.workload_units:.1f}",
-            "Workload Ratio": f"{w.workload_to_staff_ratio:.2f} : 1",
-            "Staffing Health": w.status
+            "Department": getattr(w, "department", "Unknown"),
+            "Active Staff": staff_val,
+            "Min Safety Floor": getattr(w, "min_staff_floor", 0),
+            "Inpatient Occupancy": f"{occ_val} / {cap_val}",
+            "Acuity Multiplier": f"{acuity_val:.1f}x",
+            "Workload Units": f"{units_val:.1f}",
+            "Workload Ratio": f"{ratio_val:.2f} : 1",
+            "Staffing Health": getattr(w, "status", "UNKNOWN")
         })
     df_wl = pd.DataFrame(workload_rows)
     st.dataframe(df_wl, use_container_width=True, hide_index=True)
@@ -117,19 +135,25 @@ def render_staff_resources(
                 st.info("Department workloads are currently balanced within acceptable operational limits.")
             else:
                 for rec in rebalance_recs:
+                    move_count = getattr(rec, "staff_to_move", getattr(rec, "nurses_to_rebalance", 1))
+                    qual_desc = getattr(rec, "staff_qualification", getattr(rec, "qualification_match", "RN"))
+                    advisory_text = getattr(rec, "clinical_advisory", getattr(rec, "rationale", ""))
+                    donor_rem = getattr(rec, "donor_remaining_staff", 0)
+                    donor_fl = getattr(rec, "donor_min_floor", 0)
+
                     st.markdown(f"""
                     <div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 4px solid #0284c7; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
                         <div style="font-weight: 700; color: #0f172a; font-size: 0.92rem;">
-                            Transfer {rec.nurses_to_rebalance} Staff: {rec.from_department} ➔ {rec.to_department}
+                            Transfer {move_count} Staff: {rec.from_department} ➔ {rec.to_department}
                         </div>
                         <div style="font-size: 0.84rem; color: #334155; margin-top: 4px;">
-                            <strong>Acuity Impact:</strong> {rec.rationale}
+                            <strong>Acuity Impact:</strong> {advisory_text}
                         </div>
                         <div style="font-size: 0.82rem; color: #0284c7; margin-top: 3px;">
-                            <strong>Qualification Guardrail:</strong> {rec.qualification_match}
+                            <strong>Qualification Guardrail:</strong> {qual_desc}
                         </div>
                         <div style="font-size: 0.78rem; color: #059669; margin-top: 4px;">
-                            🛡️ <strong>Donor Floor Protection:</strong> {rec.donor_floor_safety}
+                            🛡️ <strong>Donor Floor Protection:</strong> Donor retains {donor_rem} staff (safety floor: {donor_fl})
                         </div>
                     </div>
                     """, unsafe_allow_html=True)

@@ -140,18 +140,41 @@ def render_patient_flow(
         fig = go.Figure()
 
         # Last 24 hours of history
-        recent_hist = df_history.iloc[-24:].copy()
-        hist_timestamps = recent_hist["ds"].tolist()
-        hist_vals = recent_hist["total_arrivals"].tolist() if triage_cat == "All Facility" else recent_hist.get("emergency_red", recent_hist["total_arrivals"]).tolist()
+        if df_history is None or df_history.empty:
+            st.info("Historical arrival observations are currently unavailable for display.")
+        else:
+            recent_hist = df_history.iloc[-24:].copy()
 
-        fig.add_trace(go.Scatter(
-            x=hist_timestamps,
-            y=hist_vals,
-            mode="lines+markers",
-            name="Recent Historical Arrivals",
-            line=dict(color="#64748b", width=2),
-            marker=dict(size=4)
-        ))
+            # Safe extraction of timestamp column
+            if "timestamp" in recent_hist.columns:
+                hist_timestamps = recent_hist["timestamp"].tolist()
+            elif "datetime" in recent_hist.columns:
+                hist_timestamps = recent_hist["datetime"].dt.strftime("%Y-%m-%d %H:00").tolist()
+            elif "ds" in recent_hist.columns:
+                hist_timestamps = recent_hist["ds"].tolist()
+            else:
+                hist_timestamps = [f"T-{24 - i}h" for i in range(len(recent_hist))]
+
+            if triage_cat == "Emergency (Red)" and "emergency_red" in recent_hist.columns:
+                hist_vals = recent_hist["emergency_red"].tolist()
+            elif triage_cat == "Urgent (Yellow)" and "urgent_yellow" in recent_hist.columns:
+                hist_vals = recent_hist["urgent_yellow"].tolist()
+            elif triage_cat == "Routine (Green)" and "routine_green" in recent_hist.columns:
+                hist_vals = recent_hist["routine_green"].tolist()
+            elif "total_arrivals" in recent_hist.columns:
+                hist_vals = recent_hist["total_arrivals"].tolist()
+            else:
+                hist_vals = []
+
+            if hist_timestamps and hist_vals:
+                fig.add_trace(go.Scatter(
+                    x=hist_timestamps,
+                    y=hist_vals,
+                    mode="lines+markers",
+                    name="Recent Historical Arrivals",
+                    line=dict(color="#64748b", width=2),
+                    marker=dict(size=4)
+                ))
 
         # Forward Forecast
         fc_times = [p.timestamp for p in forecast.interval_forecasts]
