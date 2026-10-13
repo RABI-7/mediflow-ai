@@ -295,7 +295,7 @@ def run_integrated_decision_pipeline(
     )
 
     detected_bottlenecks = detect_hospital_bottlenecks(summary, df_departments, df_resources, sim_disrupted)
-    hidden_capacity = evaluate_hidden_capacity(summary, sim_disrupted)
+    hidden_capacity = evaluate_hidden_capacity(summary, None)
     bottleneck_chains = detect_bottleneck_chains(summary, sim_disrupted)
     staff_workloads, staff_rebalances = evaluate_staff_workload_imbalance(df_departments, summary)
 
