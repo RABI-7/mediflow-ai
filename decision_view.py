@@ -47,50 +47,14 @@ def render_decision_intelligence(
     # -------------------------------------------------------------------------
     # Brand Header
     # -------------------------------------------------------------------------
+    # Clean Professional Header
     st.markdown("""
-    <div class="brand-header-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="brand-title-text">🏥 MediFlow AI</div>
-                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
-            </div>
-            <div>
-                <span class="facility-badge">📍 Metro General Hospital</span>
-                <span class="live-telemetry-badge">🎯 Phase 5: Decision Intelligence</span>
-            </div>
+    <div style="margin-bottom: 20px;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+            Decision Intelligence & Response Evaluation
         </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_hdr_l, col_hdr_r = st.columns([3, 1])
-    with col_hdr_l:
-        st.subheader("🎯 Integrated Decision Intelligence Engine")
-        st.caption("End-to-end operational optimization: telemetry monitoring ➔ bottleneck detection ➔ arrival forecasting ➔ feasible intervention simulation ➔ trade-off ranking ➔ human review.")
-    with col_hdr_r:
-        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">END-TO-END PIPELINE</span></div>', unsafe_allow_html=True)
-
-    # -------------------------------------------------------------------------
-    # 7-Step Workflow Stepper Visual Banner
-    # -------------------------------------------------------------------------
-    st.markdown("""
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 20px;">
-        <div style="font-size: 0.8rem; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">
-            Integrated Decision-Support Pipeline Architecture
-        </div>
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.82rem; font-weight: 600;">
-            <span style="background: #eff6ff; color: #1e40af; padding: 6px 12px; border-radius: 8px; border: 1px solid #bfdbfe;">1. Monitor Data</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #fff1f2; color: #9f1239; padding: 6px 12px; border-radius: 8px; border: 1px solid #fecdd3;">2. Detect Problems</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #fdf4ff; color: #86198f; padding: 6px 12px; border-radius: 8px; border: 1px solid #f5d0fe;">3. Forecast Risks</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #fefce8; color: #854d0e; padding: 6px 12px; border-radius: 8px; border: 1px solid #fef08a;">4. Feasible Solutions</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #f0fdf4; color: #166534; padding: 6px 12px; border-radius: 8px; border: 1px solid #bbf7d0;">5. Simulate & Compare</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #f0f9ff; color: #0369a1; padding: 6px 12px; border-radius: 8px; border: 1px solid #bae6fd;">6. Explain Trade-Offs</span>
-            <span style="color: #94a3b8;">➔</span>
-            <span style="background: #f8fafc; color: #334155; padding: 6px 12px; border-radius: 8px; border: 1px solid #cbd5e1;">7. Human Review</span>
+        <div style="font-size: 0.88rem; color: #475569; margin-top: 2px;">
+            Closed-loop operational decision support: identify bottlenecks, evaluate candidate interventions under identical baselines, analyze trade-offs, and record clinical governance sign-offs.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -167,68 +131,22 @@ def render_decision_intelligence(
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # Pipeline View: Tabs for Organized Navigation of the 7 Steps
+    # Pipeline View: Focused Operational Workspaces
     # -------------------------------------------------------------------------
-    tab_step1, tab_step2, tab_step3, tab_step45, tab_step6, tab_step7 = st.tabs([
-        "1. 📊 Monitor Data",
-        "2. 🚨 Detect Problems & Chains",
-        "3. 🔮 Forecast Risks",
-        "4 & 5. ⚡ Solutions & Simulation",
-        "6. ⚖️ Trade-Offs & Best Option",
-        "7. 🛡️ Human Review Governance"
+    tab_risks, tab_step45, tab_step6, tab_step7 = st.tabs([
+        "🚨 Operational Bottlenecks & Demand Risks",
+        "⚡ Candidate Responses & Simulation",
+        "⚖️ Trade-Offs & Objective Ranking",
+        "🛡️ Clinical Governance & Sign-Off"
     ])
 
     # =========================================================================
-    # TAB 1: Monitor Hospital State & Census Telemetry
+    # TAB 1: Bottlenecks, Hidden Capacity & Forward Risks
     # =========================================================================
-    with tab_step1:
-        st.subheader("Step 1: Hospital Operational Telemetry & Resource Census")
-        st.caption("Continuous operational monitoring of licensed physical beds, current occupied census, and ready available reserves.")
+    with tab_risks:
+        st.subheader("Operational Bottlenecks, Constraints & Demand Projections")
+        st.caption("Algorithmic constraint detection identifying acute bottlenecks, non-ready bed blockers, process chains, and forward arrival demand.")
 
-        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-        with col_m1:
-            st.metric(
-                "Occupancy Rate",
-                f"{pipeline_result.active_occupancy_pct}%",
-                f"{pipeline_result.occupied_beds} / {pipeline_result.total_beds} Beds",
-                delta_color="off"
-            )
-        with col_m2:
-            st.metric(
-                "Ready Available Beds",
-                f"{pipeline_result.ready_available_beds} beds",
-                "Genuinely ready for intake",
-                delta_color="off"
-            )
-        with col_m3:
-            st.metric(
-                "Patients Waiting (Queue)",
-                f"{pipeline_result.patients_waiting} boarding",
-                "Holding in Emergency triage",
-                delta_color="off"
-            )
-        with col_m4:
-            st.metric(
-                "Active Shift Staffing",
-                f"{summary.get('staff_on_duty', 64)} staff on duty",
-                summary.get("shift_name", "Day Shift"),
-                delta_color="off"
-            )
-
-        # Departmental Census Overview
-        st.markdown("##### Departmental Census & Acuity Distribution")
-        dept_view = df_departments[["Department", "Capacity", "Occupied", "Staff", "Status"]].copy()
-        dept_view["Occupancy Rate"] = (dept_view["Occupied"] / dept_view["Capacity"] * 100).round(1).astype(str) + "%"
-        st.dataframe(dept_view, use_container_width=True, hide_index=True)
-
-    # =========================================================================
-    # TAB 2: Detect Operational Problems, Hidden Capacity & Chains
-    # =========================================================================
-    with tab_step2:
-        st.subheader("Step 2: Operational Bottlenecks, Hidden Capacity & Dependency Chains")
-        st.caption("Algorithmic constraint detection identifying acute bottlenecks, non-ready bed blockers, process chains, and staff imbalances.")
-
-        # Bottlenecks Banner
         col_bn_l, col_bn_r = st.columns([1, 1])
         with col_bn_l:
             st.markdown("##### 🚨 Active Operational Bottlenecks Detected")
@@ -251,7 +169,7 @@ def render_decision_intelligence(
         with col_bn_r:
             # Hidden Capacity Recovery Summary
             hc = pipeline_result.hidden_capacity
-            st.markdown("##### 🛏️ Hidden Capacity Recovery Engine")
+            st.markdown("##### 🛏️ Transitional Bed Capacity Blockers")
             st.markdown(f"""
             <div style="background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px 16px;">
                 <div style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">
@@ -277,7 +195,7 @@ def render_decision_intelligence(
 
         # Bottleneck Chain Detector
         st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("##### 🔗 Hospital Bottleneck Chain Detector (Modeled Dependencies)")
+        st.markdown("##### 🔗 Modeled Bottleneck Dependency Chain")
         bc = pipeline_result.bottleneck_chains
         st.markdown(f"""
         <div style="background: #fff7ed; border-left: 5px solid #f97316; border-radius: 8px; padding: 14px 18px; margin-bottom: 12px;">
@@ -290,104 +208,11 @@ def render_decision_intelligence(
         </div>
         """, unsafe_allow_html=True)
 
-        with st.expander("🔍 View Process Dependency Graph Nodes & Edges", expanded=False):
-            col_nd, col_ed = st.columns(2)
-            with col_nd:
-                st.markdown("**Modeled Process Nodes:**")
-                for node in bc.nodes:
-                    st.markdown(f"- **{node.name}** ({node.department}): `{node.status}` — {node.metric_label}: {node.metric_value}")
-            with col_ed:
-                st.markdown("**Dependency Edges (Confirmed vs Hypothetical):**")
-                for edge in bc.edges:
-                    st.markdown(f"- **{edge.source_id} ➔ {edge.target_id}**: {edge.label}")
-                    st.caption(f"  Mechanism: {edge.mechanism} | Confidence: *{edge.confidence_label}*")
-
     # =========================================================================
-    # TAB 3: Forecast Risks
-    # =========================================================================
-    with tab_step3:
-        st.subheader("Step 3: Forward Patient Arrival Forecasting & Risk Projections")
-        st.caption("Seasonal diurnal arrival modeling predicting forward hospital demand with empirical uncertainty intervals.")
-
-        if pipeline_result.forecast is not None:
-            fc = pipeline_result.forecast
-            col_fc1, col_fc2, col_fc3, col_fc4 = st.columns(4)
-            with col_fc1:
-                st.metric("Total Forecasted Arrivals", f"{fc.total_predicted_arrivals} patients", f"Next {fc.horizon_hours} Hours")
-            with col_fc2:
-                st.metric("Mean Arrival Velocity", f"{fc.mean_arrivals_per_hour:.1f} / hr", "Diurnal average")
-            with col_fc3:
-                st.metric("Peak Forecast Arrival Hour", f"{fc.peak_predicted_hour}", f"{fc.peak_predicted_count} patients/hr")
-            with col_fc4:
-                st.metric("Incremental Surge Buffer", f"+{fc.incremental_surge_above_baseline} patients", "Surge above baseline buffer")
-
-            # Chart: Forecast Trajectory & Uncertainty
-            fc_df = pd.DataFrame([{
-                "Hour": pt.timestamp.split(" ")[1],
-                "Predicted": pt.predicted_arrivals,
-                "Lower 80%": pt.lower_ci_80,
-                "Upper 80%": pt.upper_ci_80,
-                "Lower 95%": pt.lower_ci_95,
-                "Upper 95%": pt.upper_ci_95
-            } for pt in fc.interval_forecasts])
-
-            fig_fc = go.Figure()
-            # 95% ribbon
-            fig_fc.add_trace(go.Scatter(
-                x=fc_df["Hour"].tolist() + fc_df["Hour"].tolist()[::-1],
-                y=fc_df["Upper 95%"].tolist() + fc_df["Lower 95%"].tolist()[::-1],
-                fill="toself",
-                fillcolor="rgba(147, 51, 234, 0.12)",
-                line=dict(color="rgba(255,255,255,0)"),
-                name="95% Prediction Interval"
-            ))
-            # 80% ribbon
-            fig_fc.add_trace(go.Scatter(
-                x=fc_df["Hour"].tolist() + fc_df["Hour"].tolist()[::-1],
-                y=fc_df["Upper 80%"].tolist() + fc_df["Lower 80%"].tolist()[::-1],
-                fill="toself",
-                fillcolor="rgba(147, 51, 234, 0.22)",
-                line=dict(color="rgba(255,255,255,0)"),
-                name="80% Prediction Interval"
-            ))
-            # Point estimate line
-            fig_fc.add_trace(go.Scatter(
-                x=fc_df["Hour"],
-                y=fc_df["Predicted"],
-                mode="lines+markers",
-                name="Projected Patient Arrivals",
-                line=dict(color="#7c3aed", width=3)
-            ))
-            fig_fc.update_layout(
-                title=f"Forward Arrival Forecast Trajectory across next {fc.horizon_hours} Hours",
-                xaxis_title="Timeline",
-                yaxis_title="Patient Arrivals / Hour",
-                template="plotly_white",
-                height=350,
-                margin=dict(l=20, r=20, t=40, b=20)
-            )
-            st.plotly_chart(fig_fc, use_container_width=True)
-
-            # Proactive capacity alerts
-            if pipeline_result.forecast_capacity_alerts:
-                st.markdown("##### ⚠️ Proactive Bed Deficit Early-Warning Alerts")
-                for al in pipeline_result.forecast_capacity_alerts:
-                    al_color = "#ef4444" if al.severity == "CRITICAL" else "#f59e0b"
-                    st.markdown(f"""
-                    <div style="background: #ffffff; border-left: 4px solid {al_color}; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;">
-                        <strong style="color: #0f172a;">Hour {al.interval_hour} ({al.timestamp}):</strong> Projected Net Bed Deficit = <strong>-{al.projected_bed_deficit} beds</strong> (Queue: ~{al.projected_waiting_queue} patients)<br>
-                        <span style="font-size: 0.83rem; color: #334155;"><strong>Proactive Operational Protocol:</strong> {al.operational_action}</span><br>
-                        <span style="font-size: 0.78rem; color: #64748b;"><em>Lead Time Notice: {al.lead_time_recommended}</em></span>
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.info("ℹ️ Arrival Forecasting is running in manual mode. Check 'Sync with Forecast Model' in the parameters panel above to enable statistical time-series projections.")
-
-    # =========================================================================
-    # TAB 4 & 5: Solutions & Multi-Scenario Simulation
+    # TAB 2: Solutions & Multi-Scenario Simulation
     # =========================================================================
     with tab_step45:
-        st.subheader("Steps 4 & 5: Feasible Candidate Solutions & Multi-Scenario Simulation")
+        st.subheader("Candidate Operational Responses & Comparative Simulation")
         st.caption("Context-aware response options simulated deterministically under identical initial conditions (280 licensed beds, 238 occupied, 34 waiting, 6 CT queue) and duration.")
 
         # Candidate Solutions Overview

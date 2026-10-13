@@ -43,27 +43,18 @@ def render_bottleneck_analysis(
     # -------------------------------------------------------------------------
     # Brand Header
     # -------------------------------------------------------------------------
+    # Clean Professional Header
+    # -------------------------------------------------------------------------
     st.markdown("""
-    <div class="brand-header-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="brand-title-text">🏥 MediFlow AI</div>
-                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
-            </div>
-            <div>
-                <span class="facility-badge">📍 Metro General Hospital</span>
-                <span class="live-telemetry-badge">⚡ Phase 3: Bottleneck Intelligence</span>
-            </div>
+    <div style="margin-bottom: 20px;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+            Bottleneck Intelligence & Dependency Analysis
+        </div>
+        <div style="font-size: 0.88rem; color: #475569; margin-top: 2px;">
+            Identify acute clinical flow delays, diagnostic backlogs, process dependencies, and explainable intervention evidence.
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    col_title_l, col_title_r = st.columns([3, 1])
-    with col_title_l:
-        st.subheader("⚠️ Advanced Bottleneck Intelligence & Decision Support")
-        st.caption("Algorithmic constraint detection, hidden capacity recovery, dependency chains, and explainable decision support.")
-    with col_title_r:
-        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">OPERATIONAL INTELLIGENCE</span></div>', unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
     # Disruption Context Bar (Interactive Scenario Settings)

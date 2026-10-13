@@ -30,8 +30,12 @@ from bottleneck_engine import (
     InterventionComparison
 )
 from bottleneck_view import render_bottleneck_analysis
-from forecast_view import render_patient_forecasting
+from flow_view import render_patient_flow
 from decision_view import render_decision_intelligence
+from bed_view import render_bed_management
+from staff_resources_view import render_staff_resources
+from reports_view import render_reports
+from settings_view import render_settings
 from simulator_solutions import (
     ProposedSolution,
     SolutionImpactMetrics,
@@ -409,175 +413,191 @@ def load_synthetic_hospital_data():
 
 
 # -----------------------------------------------------------------------------
-# 3. Sidebar Navigation & Global Controls
+# 3. Healthcare SaaS Navigation Shell
 # -----------------------------------------------------------------------------
-def render_sidebar():
+def render_top_navbar(page_title: str, breadcrumb_item: str = "Operations", urgent_alerts_count: int = 3):
     """
-    Renders the left sidebar containing navigation and facility metadata.
+    Renders a consistent, modern healthcare SaaS top navigation bar.
+    Displays current breadcrumb, facility selector, live telemetry status, alert badge, and user profile.
     """
-    with st.sidebar:
-        st.markdown("## 🏥 MediFlow AI")
-        st.markdown(
-            "**Intelligent Hospital Resource Optimization**"
-        )
-        st.markdown("---")
-
-        st.markdown("### 📌 Navigation")
-        nav_options = [
-            "📊 Hospital Dashboard",
-            "🎯 Decision Intelligence",
-            "⚡ What-If Simulator",
-            "⚠️ Bottleneck Analysis",
-            "🔮 Patient Forecasting"
-        ]
-        if "nav_goto" in st.session_state and st.session_state["nav_goto"] in nav_options:
-            st.session_state["main_nav"] = st.session_state.pop("nav_goto")
-        elif "main_nav" not in st.session_state:
-            st.session_state["main_nav"] = nav_options[0]
-
-        page = st.radio(
-            "Select Page",
-            options=nav_options,
-            key="main_nav",
-            label_visibility="collapsed"
-        )
-
-        st.markdown("""
-        <div class="sidebar-promo-box">
-            <div style="font-weight: 700; color: #7c3aed; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;">🎯 Phase 5 Engine</div>
-            <div style="font-size: 0.82rem; color: #334155; margin-top: 3px;">
-                <strong>Decision Intelligence:</strong> 7-step pipeline from monitoring to feasible simulation and human review.
+    st.markdown(f"""
+    <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 18px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span style="font-size: 1.1rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">MediFlow AI</span>
+                <span style="color: #cbd5e1; font-size: 0.85rem;">/</span>
+                <span style="font-size: 0.8rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.04em;">{breadcrumb_item}</span>
+                <span style="color: #cbd5e1; font-size: 0.85rem;">/</span>
+                <span style="font-size: 0.88rem; font-weight: 700; color: #0284c7;">{page_title}</span>
             </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        st.markdown("---")
-        st.markdown("### 🏥 Facility Status")
-        st.info("🕒 **Shift:** Day Shift (08:00 - 16:00)\n\n📍 **Site:** Metro General Hospital\n\n🟢 **Status:** Live (Demo Telemetry)")
-
-    return page
-
-
-# -----------------------------------------------------------------------------
-# 4. View: Main Hospital Dashboard (Phase 1 Working Page)
-# -----------------------------------------------------------------------------
-def render_dashboard(summary, df_arrivals, df_departments, df_resources):
-    """
-    Renders the active Hospital Dashboard with KPIs, Plotly charts, and tables.
-    """
-    # Global Brand Header
-    st.markdown("""
-    <div class="brand-header-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="brand-title-text">🏥 MediFlow AI</div>
-                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
-            </div>
-            <div>
-                <span class="facility-badge">📍 Metro General Hospital</span>
-                <span class="live-telemetry-badge">● Operational Telemetry Active</span>
+            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; color: #334155;">
+                    📍 Metro General Hospital — Main Campus
+                </div>
+                <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; color: #166534;">
+                    ● Live Telemetry (Updated 2m ago)
+                </div>
+                <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; color: #9f1239;">
+                    🔔 {urgent_alerts_count} Active Alerts
+                </div>
+                <div style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 10px; font-size: 0.78rem; font-weight: 600; color: #0f172a;">
+                    👤 Dr. E. Vance (Operations Lead)
+                </div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Clean Page Header Row
-    col_dash_left, col_dash_right = st.columns([3, 1])
-    with col_dash_left:
-        st.subheader("Hospital Operations Dashboard")
-        st.caption("Continuous departmental census, patient inflow rate, and capacity utilization.")
-    with col_dash_right:
-        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SYNTHETIC DATA ENGINE</span></div>', unsafe_allow_html=True)
 
-    # Small Optional Information Section (Replaces long problem-statement banner)
-    with st.expander("ℹ️ About MediFlow AI & Operational Scope", expanded=False):
+def render_sidebar():
+    """
+    Renders the left sidebar containing navigation and facility metadata.
+    """
+    with st.sidebar:
         st.markdown("""
-        **MediFlow AI** provides real-time situational awareness across hospital beds, triage queues, 
-        and critical diagnostic equipment. Clinical operations teams use MediFlow AI to identify flow bottlenecks 
-        early and evaluate resource balancing strategies before bed shortages impact patient care.
-        """)
-
-    # Prominent Simulator & Decision Intelligence Spotlight Cards
-    col_spot1, col_spot2 = st.columns(2)
-    with col_spot1:
-        st.markdown("""
-        <div class="sim-spotlight-card" style="height: 100%;">
-            <div>
-                <span class="sim-spotlight-badge">⚡ Core Simulation Engine</span>
-                <div class="sim-spotlight-title">Hospital What-If Simulator</div>
-                <div class="sim-spotlight-desc">
-                    Stress-test hospital capacity under acute shocks: simulate surges, CT scanner outages, 
-                    and discharge delays side-by-side with prospective response strategies.
-                </div>
+        <div style="padding: 10px 4px 16px 4px;">
+            <div style="font-size: 1.35rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+                🏥 MediFlow AI
+            </div>
+            <div style="font-size: 0.8rem; font-weight: 600; color: #0284c7; margin-top: 1px;">
+                Hospital Operations Platform
             </div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("⚡ Open What-If Simulator", use_container_width=True, key="dash_btn_sim"):
-            st.session_state["nav_goto"] = "⚡ What-If Simulator"
-            st.rerun()
-    with col_spot2:
+
+        nav_options = [
+            "📊 Overview",
+            "🛏️ Bed Management",
+            "📈 Patient Flow",
+            "⚠️ Bottleneck Intelligence",
+            "🎯 Decision Intelligence",
+            "⚡ What-If Simulator",
+            "👥 Staff & Resources",
+            "📄 Reports",
+            "⚙️ Settings"
+        ]
+
+        legacy_map = {
+            "📊 Hospital Dashboard": "📊 Overview",
+            "⚠️ Bottleneck Analysis": "⚠️ Bottleneck Intelligence",
+            "🔮 Patient Forecasting": "📈 Patient Flow"
+        }
+        if "nav_goto" in st.session_state and st.session_state["nav_goto"] in legacy_map:
+            st.session_state["nav_goto"] = legacy_map[st.session_state["nav_goto"]]
+
+        if "nav_goto" in st.session_state and st.session_state["nav_goto"] in nav_options:
+            st.session_state["main_nav"] = st.session_state.pop("nav_goto")
+        elif "main_nav" not in st.session_state or st.session_state["main_nav"] not in nav_options:
+            st.session_state["main_nav"] = nav_options[0]
+
+        page = st.radio(
+            "Navigation",
+            options=nav_options,
+            key="main_nav",
+            label_visibility="collapsed"
+        )
+
+        st.markdown("---")
         st.markdown("""
-        <div class="sim-spotlight-card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fdf4ff 0%, #ffffff 100%); height: 100%;">
-            <div>
-                <span class="sim-spotlight-badge" style="background-color: #8b5cf6;">🎯 Phase 5 Engine</span>
-                <div class="sim-spotlight-title" style="color: #581c87;">Integrated Decision Intelligence</div>
-                <div class="sim-spotlight-desc">
-                    7-step decision pipeline: Monitor ➔ Detect bottlenecks & chains ➔ Forecast arrival demand ➔ Propose feasible responses ➔ Simulate trade-offs ➔ Human review.
-                </div>
-            </div>
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; font-size: 0.8rem; color: #475569;">
+            <div style="font-weight: 700; color: #0f172a; margin-bottom: 6px;">Facility Telemetry</div>
+            <div style="margin-bottom: 3px;"><strong>Site:</strong> Metro General Main</div>
+            <div style="margin-bottom: 3px;"><strong>Shift:</strong> Day (08:00 - 16:00)</div>
+            <div><strong>Status:</strong> <span style="color: #16a34a; font-weight: 600;">● Online</span></div>
         </div>
         """, unsafe_allow_html=True)
-        if st.button("🚀 Launch Decision Intelligence Engine", type="primary", use_container_width=True, key="dash_btn_di"):
-            st.session_state["nav_goto"] = "🎯 Decision Intelligence"
-            st.rerun()
+
+    return page
+
+
+# -----------------------------------------------------------------------------
+# 4. View: Hospital Operations Overview (Executive Workspace)
+# -----------------------------------------------------------------------------
+def render_overview(summary, df_arrivals, df_departments, df_resources):
+    """
+    Renders the executive Hospital Operations Overview page.
+    Displays:
+    - 6 core clinical & operational metrics
+    - 2 operational charts (Arrival velocity by triage category, Departmental census & capacity)
+    - 2 actionable sections (Urgent operational alerts, Detected bottlenecks & actionable directives)
+    """
+    st.markdown("""
+    <div style="margin-bottom: 20px;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+            Hospital Operations Overview
+        </div>
+        <div style="font-size: 0.88rem; color: #475569; margin-top: 2px;">
+            Real-time situational awareness across licensed bed census, emergency influx velocity, and active operational constraints.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # Metric Summary Cards
+    # 1. Metric Summary Cards (Compact 6-metric Row)
     # ---------------------------------------------------------
-    st.subheader("Key Operational Metrics")
-    col1, col2, col3, col4 = st.columns(4)
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
 
-    with col1:
+    with c1:
+        st.metric(
+            label="Total Licensed Beds",
+            value=f"{summary['total_beds']}",
+            delta="Physical Envelope",
+            delta_color="off"
+        )
+    with c2:
+        occ_pct = summary["occupancy_rate_pct"]
         st.metric(
             label="Occupied Beds",
-            value=f"{summary['occupied_beds']} / {summary['total_beds']}",
-            delta=f"{summary['occupancy_rate_pct']}% Occupancy Rate",
-            delta_color="inverse"
+            value=f"{summary['occupied_beds']}",
+            delta=f"{occ_pct}% Occupancy",
+            delta_color="inverse" if occ_pct >= 85 else "off"
         )
-    with col2:
+    with c3:
+        ready_beds = summary.get("ready_available_beds", 6)
         st.metric(
-            label="Available Beds",
-            value=f"{summary['available_beds']}",
-            delta="-4 from last hour",
-            delta_color="normal"
+            label="Ready & Available",
+            value=f"{ready_beds}",
+            delta="Intake Cleared",
+            delta_color="normal" if ready_beds > 10 else "inverse"
         )
-    with col3:
+    with c4:
         st.metric(
-            label="Patients Waiting (Triage/Queue)",
+            label="Patients Waiting",
             value=f"{summary['patients_waiting']}",
-            delta="+7 surge alert",
+            delta="Triage / Boarding",
             delta_color="inverse"
         )
-    with col4:
+    with c5:
+        blocked_delay_beds = (
+            summary.get("awaiting_discharge_beds", 14) +
+            summary.get("awaiting_cleaning_beds", 12) +
+            summary.get("awaiting_verification_beds", 6)
+        )
         st.metric(
-            label="Medical Staff on Duty",
+            label="Blocked by Delays",
+            value=f"{blocked_delay_beds}",
+            delta="Recoverable Turnover",
+            delta_color="inverse"
+        )
+    with c6:
+        st.metric(
+            label="Staff on Duty",
             value=f"{summary['staff_on_duty']}",
-            delta="5 shifts active",
-            delta_color="off"
+            delta="2 High Strain Units",
+            delta_color="inverse"
         )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # Interactive Visualizations
+    # 2. Operational Visualizations Row
     # ---------------------------------------------------------
     col_chart_left, col_chart_right = st.columns([1, 1])
 
     with col_chart_left:
-        st.subheader("📈 Patient Arrivals Over 24 Hours")
-        st.caption("Hourly influx categorized by clinical triage severity")
+        st.markdown("##### 📈 Patient Arrivals Over 24 Hours")
+        st.caption("Hourly influx velocity categorized by clinical triage severity")
 
-        # Plotly Line/Area Chart for Arrivals
         fig_arrivals = go.Figure()
         fig_arrivals.add_trace(go.Scatter(
             x=df_arrivals["Hour"],
@@ -605,28 +625,27 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
         ))
 
         fig_arrivals.update_layout(
-            height=380,
-            margin=dict(l=20, r=20, t=30, b=20),
+            height=340,
+            margin=dict(l=20, r=20, t=25, b=20),
             hovermode="x unified",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             xaxis_title="Time of Day",
-            yaxis_title="Patient Influx Count",
+            yaxis_title="Arrivals / Hour",
             template="plotly_white"
         )
         st.plotly_chart(fig_arrivals, use_container_width=True)
 
     with col_chart_right:
-        st.subheader("🛏️ Bed Capacity & Occupancy by Department")
-        st.caption("Comparison of occupied beds versus remaining capacity")
+        st.markdown("##### 🛏️ Department Census & Available Capacity")
+        st.caption("Occupied inpatient beds versus remaining available capacity")
 
-        # Plotly Bar Chart for Departmental Bed Occupancy
         fig_dept = go.Figure()
         fig_dept.add_trace(go.Bar(
             y=df_departments["Department"],
             x=df_departments["Occupied"],
             name="Occupied Beds",
             orientation="h",
-            marker=dict(color="#3b82f6")
+            marker=dict(color="#2563eb")
         ))
         fig_dept.add_trace(go.Bar(
             y=df_departments["Department"],
@@ -638,8 +657,8 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
 
         fig_dept.update_layout(
             barmode="stack",
-            height=380,
-            margin=dict(l=20, r=20, t=30, b=20),
+            height=340,
+            margin=dict(l=20, r=20, t=25, b=20),
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             xaxis_title="Number of Beds",
             yaxis_title="",
@@ -650,37 +669,93 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
     st.markdown("<br>", unsafe_allow_html=True)
 
     # ---------------------------------------------------------
-    # Hospital Resource & Equipment Table
+    # 3. Actionable Operational Alerts & Directives Row
     # ---------------------------------------------------------
-    st.subheader("📋 Hospital Department & Critical Equipment Status")
-    st.caption("Synthetic snapshot of departmental loads and diagnostic equipment availability")
+    col_alert_left, col_action_right = st.columns([1, 1])
 
-    tab1, tab2 = st.tabs(["🏥 Department Bed Summary", "🔬 Critical Equipment & Staffing"])
+    with col_alert_left:
+        st.markdown("##### 🚨 Operational Alerts (Ranked by Urgency)")
+        st.caption("Active operational bottlenecks prioritized by clinical impact")
 
-    with tab1:
-        # Format Department table cleanly
-        dept_display = df_departments[["Department", "Capacity", "Occupied", "Available", "Occupancy %", "Staff", "Status"]]
-        st.dataframe(
-            dept_display,
-            use_container_width=True,
-            hide_index=True
-        )
+        alerts = [
+            {
+                "level": "CRITICAL",
+                "badge_color": "#ef4444",
+                "bg_color": "#fef2f2",
+                "border_color": "#fecaca",
+                "title": "Emergency Department Boarding Strain",
+                "detail": "34 patients currently waiting in triage/boarding queue. ER census at 93.3% (42/45 beds occupied).",
+                "action": "Expedite inpatient admission transfers to General Med."
+            },
+            {
+                "level": "HIGH",
+                "badge_color": "#f59e0b",
+                "bg_color": "#fffbeb",
+                "border_color": "#fde68a",
+                "title": "CT Scanner 2 Diagnostic Degradation",
+                "detail": "Trauma scanner operating in degraded maintenance mode. Queue at 11 patients (est. wait 95 min).",
+                "action": "Re-route eligible non-trauma diagnostic scans to Main Radiology Scanner 1."
+            },
+            {
+                "level": "HIGH",
+                "badge_color": "#f59e0b",
+                "bg_color": "#fffbeb",
+                "border_color": "#fde68a",
+                "title": "Bed Turnover Clearance Delay",
+                "detail": "32 beds physically unoccupied but blocked from intake (14 discharge hold, 12 dirty EVS, 6 verification).",
+                "action": "Deploy rapid-turnover EVS response team to recover ready capacity."
+            },
+            {
+                "level": "MODERATE",
+                "badge_color": "#3b82f6",
+                "bg_color": "#eff6ff",
+                "border_color": "#bfdbfe",
+                "title": "Nurse Workload Acuity Imbalance",
+                "detail": "General Medicine and Surgery exceeding 5.0:1 ratio. Pediatrics & Cardiology have surplus coverage.",
+                "action": "Evaluate qualified float-eligible RN cross-allocation to General Medicine."
+            }
+        ]
 
-    with tab2:
-        # Critical Equipment and Diagnostics
-        st.dataframe(
-            df_resources,
-            use_container_width=True,
-            hide_index=True
-        )
+        for alt in alerts:
+            st.markdown(f"""
+            <div style="background: {alt['bg_color']}; border: 1px solid {alt['border_color']}; border-left: 4px solid {alt['badge_color']}; border-radius: 8px; padding: 10px 14px; margin-bottom: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+                    <span style="font-weight: 700; font-size: 0.88rem; color: #0f172a;">{alt['title']}</span>
+                    <span style="font-size: 0.72rem; font-weight: 700; color: {alt['badge_color']}; background: #ffffff; border: 1px solid {alt['border_color']}; border-radius: 4px; padding: 1px 6px;">{alt['level']}</span>
+                </div>
+                <div style="font-size: 0.82rem; color: #475569; margin-bottom: 4px;">{alt['detail']}</div>
+                <div style="font-size: 0.8rem; font-weight: 600; color: #0369a1;">➔ Directive: {alt['action']}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # Bottom Notice
-    st.markdown("---")
-    st.caption("🔒 **MediFlow AI Data Notice:** All values presented above are simulated synthetic values for demonstration purposes. MediFlow AI does not store, transmit, or process protected patient health information (PHI).")
+    with col_action_right:
+        st.markdown("##### ⚡ Flow Bottlenecks & Quick Directives")
+        st.caption("Direct operational actions to unblock clinical patient flow")
+
+        with st.container(border=True):
+            st.markdown("<strong style='color: #0f172a;'>1. Recover 32 Blocked Inpatient Beds</strong>", unsafe_allow_html=True)
+            st.markdown("<span style='font-size: 0.84rem; color: #475569;'>Discharge handoffs (14 beds) and EVS sanitization (12 beds) represent the fastest potential capacity recovery.</span>", unsafe_allow_html=True)
+            if st.button("🛏️ Open Bed Management & Capacity Recovery", use_container_width=True, key="ov_btn_bed"):
+                st.session_state["nav_goto"] = "🛏️ Bed Management"
+                st.rerun()
+
+        with st.container(border=True):
+            st.markdown("<strong style='color: #0f172a;'>2. Stress-Test Upcoming Influx Surges</strong>", unsafe_allow_html=True)
+            st.markdown("<span style='font-size: 0.84rem; color: #475569;'>Simulate sudden ED patient surges, CT outages, and discharge delays side-by-side with tested mitigations.</span>", unsafe_allow_html=True)
+            if st.button("⚡ Open What-If Capacity Simulator", use_container_width=True, key="ov_btn_sim"):
+                st.session_state["nav_goto"] = "⚡ What-If Simulator"
+                st.rerun()
+
+        with st.container(border=True):
+            st.markdown("<strong style='color: #0f172a;'>3. Review Multi-Objective Decision Package</strong>", unsafe_allow_html=True)
+            st.markdown("<span style='font-size: 0.84rem; color: #475569;'>Inspect ranked candidate interventions, objective scores, risk trade-offs, and record clinical approval.</span>", unsafe_allow_html=True)
+            if st.button("🎯 Launch Decision Intelligence Workspace", type="primary", use_container_width=True, key="ov_btn_di"):
+                st.session_state["nav_goto"] = "🎯 Decision Intelligence"
+                st.rerun()
 
 
 # -----------------------------------------------------------------------------
-# 5. View: Hospital What-If Simulator (Phase 2 Working Page)
+# 5. View: Hospital What-If Simulator
 # -----------------------------------------------------------------------------
 def render_what_if_simulator(summary=None, df_departments=None, df_resources=None):
     """
@@ -689,37 +764,18 @@ def render_what_if_simulator(summary=None, df_departments=None, df_resources=Non
     """
     if summary is None or df_departments is None:
         summary, _, df_departments, df_resources = load_synthetic_hospital_data()
-    # Global Brand Header
+
+    # Clean Page Header Row
     st.markdown("""
-    <div class="brand-header-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="brand-title-text">🏥 MediFlow AI</div>
-                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
-            </div>
-            <div>
-                <span class="facility-badge">📍 Metro General Hospital</span>
-                <span class="live-telemetry-badge">⚡ Core Simulation Engine Active</span>
-            </div>
+    <div style="margin-bottom: 20px;">
+        <div style="font-size: 1.5rem; font-weight: 800; color: #0f172a; letter-spacing: -0.02em;">
+            Hospital What-If Capacity Simulator
+        </div>
+        <div style="font-size: 0.88rem; color: #475569; margin-top: 2px;">
+            Deterministic stress-testing: evaluate sudden patient arrival surges, diagnostic outages, and bed clearance delays under identical baselines.
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    # Clean Page Header Row
-    col_sim_left, col_sim_right = st.columns([3, 1])
-    with col_sim_left:
-        st.subheader("Hospital What-If Simulator")
-        st.caption("Interactive capacity stress-testing: evaluate sudden patient surges, diagnostic outages, and discharge interventions.")
-    with col_sim_right:
-        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SCENARIO STRESS-TEST</span></div>', unsafe_allow_html=True)
-
-    # Small Optional Information Section
-    with st.expander("ℹ️ About Simulation Methodology & Assumptions", expanded=False):
-        st.markdown("""
-        The simulator executes a deterministic hour-by-hour resource flow model that strictly respects physical bed limits, 
-        admission turnover constraints, and diagnostic throughput. It compares **Baseline (Normal Operations)**, 
-        **Disrupted**, and **Proposed Response** scenarios side-by-side to assist clinical leaders in capacity planning.
-        """)
 
     # Check if forecast parameters were passed from Phase 4
     forecast_applied = st.session_state.get("sim_forecast_applied", False)
@@ -1338,59 +1394,11 @@ def render_what_if_simulator(summary=None, df_departments=None, df_resources=Non
 
     # Bottom Notice
     st.markdown("---")
-    st.caption("🔒 **MediFlow AI Data Notice:** All values presented in the What-If Simulator are synthetic demonstration estimates for hackathon evaluation. MediFlow AI does not process real clinical records or real patient health information (PHI).")
+    st.caption("🔒 **MediFlow AI Data Notice:** All values presented in the What-If Simulator are synthetic demonstration estimates. MediFlow AI does not process real clinical records or real patient health information (PHI).")
 
 
 # -----------------------------------------------------------------------------
-# 6. Views: Future Phase Placeholders
-# -----------------------------------------------------------------------------
-def render_future_phase(page_name, phase_number, feature_description, planned_capabilities):
-    """
-    Renders a modern product roadmap card for upcoming capabilities.
-    """
-    # Global Brand Header
-    st.markdown("""
-    <div class="brand-header-box">
-        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-            <div>
-                <div class="brand-title-text">🏥 MediFlow AI</div>
-                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
-            </div>
-            <div>
-                <span class="facility-badge">📍 Metro General Hospital</span>
-                <span class="live-telemetry-badge">🔮 Product Roadmap</span>
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    col_fut_l, col_fut_r = st.columns([3, 1])
-    with col_fut_l:
-        st.subheader(page_name)
-    with col_fut_r:
-        st.markdown(f'<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SCHEDULED • PHASE {phase_number}</span></div>', unsafe_allow_html=True)
-
-    st.markdown(f"""
-    <div class="future-card">
-        <h2 style="color: #0284c7; margin-bottom: 8px;">🚀 Planned for Phase {phase_number}</h2>
-        <p style="font-size: 1.05rem; color: #475569; max-width: 700px; margin: 0 auto 24px auto;">
-            {feature_description}
-        </p>
-        <div style="display: inline-block; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: left; max-width: 600px;">
-            <h4 style="margin-top: 0; color: #0f172a;">Planned Capabilities for this Module:</h4>
-            <ul>
-                {"".join(f"<li style='margin-bottom: 8px;'>{cap}</li>" for cap in planned_capabilities)}
-            </ul>
-        </div>
-        <p style="margin-top: 24px; color: #64748b; font-size: 0.9rem;">
-            <em>Status: Module under active roadmap development. Available in upcoming version rollout.</em>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
-# 7. Main Application Controller
+# 6. Main Application Controller
 # -----------------------------------------------------------------------------
 def main():
     # Load synthetic demonstration data
@@ -1399,9 +1407,22 @@ def main():
     # Render Sidebar navigation
     selected_page = render_sidebar()
 
+    # Clean active page title for top navbar
+    page_title_clean = selected_page.split(" ", 1)[-1]
+    render_top_navbar(page_title_clean, "Operations")
+
     # Route to selected page
-    if "Dashboard" in selected_page:
-        render_dashboard(summary, df_arrivals, df_departments, df_resources)
+    if "Overview" in selected_page:
+        render_overview(summary, df_arrivals, df_departments, df_resources)
+
+    elif "Bed Management" in selected_page:
+        render_bed_management(summary, df_departments, df_resources)
+
+    elif "Patient Flow" in selected_page:
+        render_patient_flow(summary, df_departments, df_resources)
+
+    elif "Bottleneck" in selected_page:
+        render_bottleneck_analysis(summary, df_departments, df_resources)
 
     elif "Decision Intelligence" in selected_page:
         render_decision_intelligence(summary, df_departments, df_resources)
@@ -1409,12 +1430,19 @@ def main():
     elif "Simulator" in selected_page:
         render_what_if_simulator(summary, df_departments, df_resources)
 
-    elif "Bottleneck" in selected_page:
-        render_bottleneck_analysis(summary, df_departments, df_resources)
+    elif "Staff" in selected_page:
+        render_staff_resources(summary, df_departments, df_resources)
 
-    elif "Forecasting" in selected_page:
-        render_patient_forecasting(summary, df_departments, df_resources)
+    elif "Reports" in selected_page:
+        render_reports(summary, df_departments, df_resources)
+
+    elif "Settings" in selected_page:
+        render_settings(summary)
+
+    else:
+        render_overview(summary, df_arrivals, df_departments, df_resources)
 
 
 if __name__ == "__main__":
     main()
+
