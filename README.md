@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🏥 MediFlow AI — Hospital Resource & Flow Optimization
 
 > **Hackathon Track:** Overcrowded Hospitals, Limited Resources: Doing More With What Exists  
@@ -99,3 +100,6 @@ SRM/
 
 ## ⚠️ Disclaimer
 All data displayed in MediFlow AI is **synthetically generated demonstration data**. No real patient information or proprietary hospital systems are used or accessed.
+=======
+# mediflow-ai
+>>>>>>> 17b98041841525a235908464e1f306bf524b39fb
