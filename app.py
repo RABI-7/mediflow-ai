@@ -20,6 +20,26 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from simulator import run_hospital_what_if_simulation, ScenarioResult
+from bottleneck_engine import (
+    detect_hospital_bottlenecks,
+    generate_recommendations,
+    simulate_specific_intervention,
+    THRESHOLDS,
+    BottleneckFinding,
+    OperationalRecommendation,
+    InterventionComparison
+)
+from bottleneck_view import render_bottleneck_analysis
+from forecast_view import render_patient_forecasting
+from decision_view import render_decision_intelligence
+from simulator_solutions import (
+    ProposedSolution,
+    SolutionImpactMetrics,
+    RankedSolutionEvaluation,
+    generate_scenario_tailored_solutions,
+    calculate_impact_metrics,
+    simulate_and_rank_solutions
+)
 
 # -----------------------------------------------------------------------------
 # 1. Page Configuration & Theme
@@ -211,6 +231,72 @@ st.markdown("""
         margin-top: 16px;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
     }
+    
+    /* Solution Recommendation Cards & Badges */
+    .sol-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 16px 18px;
+        margin-bottom: 14px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .sol-feasible-border {
+        border-left: 5px solid #10b981;
+    }
+    .sol-infeasible-border {
+        border-left: 5px solid #ef4444;
+        background: #fffbfa;
+    }
+    .badge-feasible {
+        display: inline-block;
+        background: #ecfdf5;
+        color: #065f46;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid #a7f3d0;
+    }
+    .badge-infeasible {
+        display: inline-block;
+        background: #fef2f2;
+        color: #991b1b;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid #fecaca;
+    }
+    .badge-category {
+        display: inline-block;
+        background: #f1f5f9;
+        color: #334155;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid #e2e8f0;
+        margin-right: 6px;
+    }
+    .badge-evidence {
+        display: inline-block;
+        background: #eff6ff;
+        color: #1e40af;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid #bfdbfe;
+    }
+    .best-option-banner {
+        background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+        border: 2px solid #86efac;
+        border-radius: 12px;
+        padding: 18px 22px;
+        margin-bottom: 20px;
+        box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.08);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -231,8 +317,15 @@ def load_synthetic_hospital_data():
         "available_beds": 42,
         "occupancy_rate_pct": 85.0,
         "patients_waiting": 34,
-        "staff_on_duty": 58,
-        "shift_name": "Day Shift (08:00 - 16:00)"
+        "staff_on_duty": 64,
+        "shift_name": "Day Shift (08:00 - 16:00)",
+        "shift_start": "08:00",
+        "shift_end": "16:00",
+        "awaiting_discharge_beds": 14,
+        "awaiting_cleaning_beds": 12,
+        "awaiting_verification_beds": 6,
+        "ready_available_beds": 6,
+        "unavailable_maintenance_beds": 4
     }
 
     # 2. Synthetic Patient Arrivals by Hour (24-hour cycle)
@@ -256,12 +349,12 @@ def load_synthetic_hospital_data():
 
     # 3. Departmental Bed Capacity and Utilization
     department_data = [
-        {"Department": "Emergency Dept (ER)", "Capacity": 45, "Occupied": 42, "Staff": 14, "Status": "Critical Load"},
-        {"Department": "Intensive Care (ICU)", "Capacity": 30, "Occupied": 27, "Staff": 12, "Status": "Near Capacity"},
-        {"Department": "General Medicine",   "Capacity": 95, "Occupied": 82, "Staff": 15, "Status": "Normal Flow"},
-        {"Department": "Surgery & Post-Op",   "Capacity": 55, "Occupied": 48, "Staff": 10, "Status": "High Load"},
-        {"Department": "Pediatrics",          "Capacity": 35, "Occupied": 24, "Staff": 4,  "Status": "Normal Flow"},
-        {"Department": "Cardiology Ward",     "Capacity": 20, "Occupied": 15, "Staff": 3,  "Status": "Normal Flow"}
+        {"Department": "Emergency Dept (ER)", "Capacity": 45, "Occupied": 42, "Staff": 14, "Status": "Critical Load", "MinStaffFloor": 10, "AcuityWeight": 1.5, "WorkloadUnits": 63.0, "Qualifications": "Emergency BLS, ACLS, Trauma Triage", "EligibleCrossUnits": "None (High Inflow)"},
+        {"Department": "Intensive Care (ICU)", "Capacity": 30, "Occupied": 27, "Staff": 12, "Status": "Near Capacity", "MinStaffFloor": 10, "AcuityWeight": 2.0, "WorkloadUnits": 54.0, "Qualifications": "Critical Care, CCRN, ACLS", "EligibleCrossUnits": "None (Critical Locked)"},
+        {"Department": "General Medicine",   "Capacity": 95, "Occupied": 86, "Staff": 16, "Status": "Normal Flow", "MinStaffFloor": 10, "AcuityWeight": 1.0, "WorkloadUnits": 86.0, "Qualifications": "Med-Surg RN, BLS", "EligibleCrossUnits": "None (Recipient)"},
+        {"Department": "Surgery & Post-Op",   "Capacity": 55, "Occupied": 51, "Staff": 11, "Status": "High Load", "MinStaffFloor": 8, "AcuityWeight": 1.1, "WorkloadUnits": 56.1, "Qualifications": "PACU / Surgical RN, BLS", "EligibleCrossUnits": "None"},
+        {"Department": "Pediatrics",          "Capacity": 35, "Occupied": 18, "Staff": 6,  "Status": "Normal Flow", "MinStaffFloor": 3, "AcuityWeight": 1.0, "WorkloadUnits": 18.0, "Qualifications": "Pediatric RN, PALS, Med-Surg Eligible", "EligibleCrossUnits": "General Medicine, Surgery & Post-Op"},
+        {"Department": "Cardiology Ward",     "Capacity": 20, "Occupied": 14, "Staff": 5,  "Status": "Normal Flow", "MinStaffFloor": 2, "AcuityWeight": 1.0, "WorkloadUnits": 14.0, "Qualifications": "Telemetry RN, ACLS, Med-Surg Eligible", "EligibleCrossUnits": "General Medicine, Emergency Dept (ER)"}
     ]
     df_departments = pd.DataFrame(department_data)
     df_departments["Available"] = df_departments["Capacity"] - df_departments["Occupied"]
@@ -330,24 +423,30 @@ def render_sidebar():
         st.markdown("---")
 
         st.markdown("### 📌 Navigation")
+        nav_options = [
+            "📊 Hospital Dashboard",
+            "🎯 Decision Intelligence",
+            "⚡ What-If Simulator",
+            "⚠️ Bottleneck Analysis",
+            "🔮 Patient Forecasting"
+        ]
+        if "nav_goto" in st.session_state and st.session_state["nav_goto"] in nav_options:
+            st.session_state["main_nav"] = st.session_state.pop("nav_goto")
+        elif "main_nav" not in st.session_state:
+            st.session_state["main_nav"] = nav_options[0]
+
         page = st.radio(
             "Select Page",
-            options=[
-                "📊 Hospital Dashboard",
-                "⚡ What-If Simulator",
-                "⚠️ Bottleneck Analysis",
-                "🔮 Patient Forecasting"
-            ],
-            index=0,
+            options=nav_options,
             key="main_nav",
             label_visibility="collapsed"
         )
 
         st.markdown("""
         <div class="sidebar-promo-box">
-            <div style="font-weight: 700; color: #0284c7; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;">⚡ Core Engine</div>
+            <div style="font-weight: 700; color: #7c3aed; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;">🎯 Phase 5 Engine</div>
             <div style="font-size: 0.82rem; color: #334155; margin-top: 3px;">
-                <strong>What-If Simulator:</strong> Model acute surges, CT outages & discharge responses side-by-side.
+                <strong>Decision Intelligence:</strong> 7-step pipeline from monitoring to feasible simulation and human review.
             </div>
         </div>
         """, unsafe_allow_html=True)
@@ -398,19 +497,39 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
         early and evaluate resource balancing strategies before bed shortages impact patient care.
         """)
 
-    # Prominent Simulator Feature Spotlight Card
-    st.markdown("""
-    <div class="sim-spotlight-card">
-        <div>
-            <span class="sim-spotlight-badge">⚡ Core Differentiating Feature</span>
-            <div class="sim-spotlight-title">Hospital What-If Simulator</div>
-            <div class="sim-spotlight-desc">
-                Stress-test hospital capacity under sudden shocks: simulate +30 patient surges, CT scanner outages, 
-                and discharge delays side-by-side with prospective response strategies.
+    # Prominent Simulator & Decision Intelligence Spotlight Cards
+    col_spot1, col_spot2 = st.columns(2)
+    with col_spot1:
+        st.markdown("""
+        <div class="sim-spotlight-card" style="height: 100%;">
+            <div>
+                <span class="sim-spotlight-badge">⚡ Core Simulation Engine</span>
+                <div class="sim-spotlight-title">Hospital What-If Simulator</div>
+                <div class="sim-spotlight-desc">
+                    Stress-test hospital capacity under acute shocks: simulate surges, CT scanner outages, 
+                    and discharge delays side-by-side with prospective response strategies.
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("⚡ Open What-If Simulator", use_container_width=True, key="dash_btn_sim"):
+            st.session_state["nav_goto"] = "⚡ What-If Simulator"
+            st.rerun()
+    with col_spot2:
+        st.markdown("""
+        <div class="sim-spotlight-card" style="border-left: 5px solid #8b5cf6; background: linear-gradient(135deg, #fdf4ff 0%, #ffffff 100%); height: 100%;">
+            <div>
+                <span class="sim-spotlight-badge" style="background-color: #8b5cf6;">🎯 Phase 5 Engine</span>
+                <div class="sim-spotlight-title" style="color: #581c87;">Integrated Decision Intelligence</div>
+                <div class="sim-spotlight-desc">
+                    7-step decision pipeline: Monitor ➔ Detect bottlenecks & chains ➔ Forecast arrival demand ➔ Propose feasible responses ➔ Simulate trade-offs ➔ Human review.
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("🚀 Launch Decision Intelligence Engine", type="primary", use_container_width=True, key="dash_btn_di"):
+            st.session_state["nav_goto"] = "🎯 Decision Intelligence"
+            st.rerun()
 
     # ---------------------------------------------------------
     # Metric Summary Cards
@@ -563,11 +682,13 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
 # -----------------------------------------------------------------------------
 # 5. View: Hospital What-If Simulator (Phase 2 Working Page)
 # -----------------------------------------------------------------------------
-def render_what_if_simulator():
+def render_what_if_simulator(summary=None, df_departments=None, df_resources=None):
     """
-    Renders the interactive Hospital What-If Simulator.
-    Simulates acute operational disruptions and evaluates response strategies.
+    Renders the interactive Hospital What-If Simulator with solution recommendations and comparisons.
+    Simulates acute operational disruptions, proposes tailored interventions, and enforces feasibility.
     """
+    if summary is None or df_departments is None:
+        summary, _, df_departments, df_resources = load_synthetic_hospital_data()
     # Global Brand Header
     st.markdown("""
     <div class="brand-header-box">
@@ -600,6 +721,27 @@ def render_what_if_simulator():
         **Disrupted**, and **Proposed Response** scenarios side-by-side to assist clinical leaders in capacity planning.
         """)
 
+    # Check if forecast parameters were passed from Phase 4
+    forecast_applied = st.session_state.get("sim_forecast_applied", False)
+    default_surge = int(st.session_state.get("sim_forecast_surge", 30))
+    default_surge = max(0, min(60, default_surge))
+    default_duration = int(st.session_state.get("sim_forecast_duration", 12))
+    duration_options = [4, 8, 12, 24]
+    duration_idx = duration_options.index(default_duration) if default_duration in duration_options else 2
+
+    if forecast_applied:
+        st.markdown(f"""
+        <div style="background-color: #f0f9ff; border: 1px solid #bae6fd; border-left: 5px solid #0284c7; padding: 14px 18px; border-radius: 10px; margin-bottom: 16px;">
+            <div style="font-weight: 700; color: #0369a1; font-size: 0.98rem; margin-bottom: 2px;">
+                🔮 Arrival Forecast Parameters Applied
+            </div>
+            <div style="font-size: 0.88rem; color: #334155;">
+                Pre-populated controls with <strong>+{default_surge} forecasted surge arrivals</strong> across a <strong>{default_duration}-hour window</strong> based on the Intelligent Arrival Forecasting module.
+                You can review or adjust any scenario parameters below before executing the stress-test.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # -------------------------------------------------------------------------
     # 1. Interactive Control Panel
     # -------------------------------------------------------------------------
@@ -612,7 +754,7 @@ def render_what_if_simulator():
                 "Additional Patient Arrivals",
                 min_value=0,
                 max_value=60,
-                value=30,
+                value=default_surge,
                 step=5,
                 help="Simulate an unscheduled surge of incoming emergency/urgent patients (0 to 60 patients)."
             )
@@ -642,8 +784,8 @@ def render_what_if_simulator():
         with col_ctrl4:
             duration_choice = st.selectbox(
                 "Simulation Duration",
-                options=[4, 8, 12, 24],
-                index=2,
+                options=duration_options,
+                index=duration_idx,
                 format_func=lambda h: f"{h} Hours",
                 help="Time window over which the simulation model evaluates resource strain."
             )
@@ -700,16 +842,16 @@ def render_what_if_simulator():
     """, unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # 4. Side-by-Side Scenario Comparison Cards
+    # 4. Scenario A & B Reference Overview
     # -------------------------------------------------------------------------
-    st.subheader("📊 Scenario Comparison: Normal vs. Disrupted vs. Proposed Response")
-    st.caption("Compare key resource outcomes across normal operations, the stress-test disruption, and prospective interventions.")
+    st.subheader("📊 Operational Scenarios: Baseline vs. Active Disruption")
+    st.caption("Compare baseline hospital performance against the unmitigated stress-test disruption before evaluating solutions.")
 
-    col_scen_a, col_scen_b, col_scen_c = st.columns(3)
+    col_scen_a, col_scen_b = st.columns(2)
 
     # --- Scenario A: Baseline ---
     with col_scen_a:
-        st.markdown('<div class="scenario-header scenario-baseline">🟢 Scenario A: Baseline (Normal)</div>', unsafe_allow_html=True)
+        st.markdown('<div class="scenario-header scenario-baseline">🟢 Scenario A: Baseline (Normal Operations)</div>', unsafe_allow_html=True)
         st.metric(
             label="Occupied Beds",
             value=f"{baseline_res.final_occupied} / {baseline_res.total_beds}",
@@ -723,7 +865,7 @@ def render_what_if_simulator():
             delta_color="off"
         )
         st.metric(
-            label="Patients Waiting for Bed",
+            label="Patients Waiting for Bed (Unmet Demand)",
             value=f"{baseline_res.final_waiting}",
             delta=f"Peak: {baseline_res.peak_waiting} in queue",
             delta_color="off"
@@ -734,11 +876,11 @@ def render_what_if_simulator():
             delta=f"{baseline_res.est_ct_wait_mins} mins wait",
             delta_color="off"
         )
-        st.caption(f"**Total Discharges:** {baseline_res.total_discharges} | **Demand:** {baseline_res.projected_bed_demand} beds")
+        st.caption(f"**Total Discharges:** {baseline_res.total_discharges} | **Projected Bed Demand:** {baseline_res.projected_bed_demand} beds")
 
     # --- Scenario B: Disrupted ---
     with col_scen_b:
-        st.markdown('<div class="scenario-header scenario-disrupted">🔴 Scenario B: Disrupted Operations</div>', unsafe_allow_html=True)
+        st.markdown('<div class="scenario-header scenario-disrupted">🔴 Scenario B: Disrupted Operations (Active Stress-Test)</div>', unsafe_allow_html=True)
         st.metric(
             label="Occupied Beds",
             value=f"{disrupted_res.final_occupied} / {disrupted_res.total_beds}",
@@ -754,7 +896,7 @@ def render_what_if_simulator():
         )
         delta_waiting = disrupted_res.final_waiting - baseline_res.final_waiting
         st.metric(
-            label="Patients Waiting for Bed",
+            label="Patients Waiting for Bed (Unmet Demand)",
             value=f"{disrupted_res.final_waiting}",
             delta=f"+{delta_waiting} surge backlog" if delta_waiting > 0 else "Stable",
             delta_color="inverse" if delta_waiting > 0 else "off"
@@ -766,63 +908,250 @@ def render_what_if_simulator():
             delta=f"+{delta_ct_wait} mins delay" if delta_ct_wait > 0 else "Normal",
             delta_color="inverse" if delta_ct_wait > 0 else "off"
         )
-        st.caption(f"**Total Discharges:** {disrupted_res.total_discharges} | **Demand:** {disrupted_res.projected_bed_demand} beds")
-
-    # --- Scenario C: Proposed Response ---
-    with col_scen_c:
-        st.markdown('<div class="scenario-header scenario-response">🔵 Scenario C: Proposed Response</div>', unsafe_allow_html=True)
-        flex_note = f" (+{meta['flex_beds_activated']} flex)" if meta['flex_beds_activated'] > 0 else ""
-        st.metric(
-            label=f"Occupied Beds{flex_note}",
-            value=f"{response_res.final_occupied} / {response_res.total_beds}",
-            delta=f"{response_res.final_occupancy_pct}% Occupancy",
-            delta_color="off"
-        )
-        st.metric(
-            label="Available Beds",
-            value=f"{response_res.final_available} beds open",
-            delta=f"Maintained buffer",
-            delta_color="off"
-        )
-        st.metric(
-            label="Patients Waiting for Bed",
-            value=f"{response_res.final_waiting}",
-            delta=f"-{mitigated_count} mitigated" if mitigated_count > 0 else "Clear",
-            delta_color="normal" if mitigated_count > 0 else "off"
-        )
-        st.metric(
-            label="CT Scanner Queue & Wait",
-            value=f"{response_res.final_ct_queue} patients",
-            delta=f"{response_res.est_ct_wait_mins} mins wait",
-            delta_color="off"
-        )
-        st.caption(f"**Total Discharges:** {response_res.total_discharges} | **Demand:** {response_res.projected_bed_demand} beds")
-
-    # -------------------------------------------------------------------------
-    # 5. Modeling Assumptions & Explanations (Transparent & Beginner Friendly)
-    # -------------------------------------------------------------------------
-    with st.expander("📋 View Assumptions and Constraints for Each Scenario", expanded=False):
-        c_assump1, c_assump2, c_assump3 = st.columns(3)
-        with c_assump1:
-            st.markdown("**🟢 Scenario A Assumptions:**")
-            for a in baseline_res.assumptions:
-                st.markdown(f"- {a}")
-        with c_assump2:
-            st.markdown("**🔴 Scenario B Assumptions:**")
-            for a in disrupted_res.assumptions:
-                st.markdown(f"- {a}")
-        with c_assump3:
-            st.markdown("**🔵 Scenario C Assumptions:**")
-            for a in response_res.assumptions:
-                st.markdown(f"- {a}")
-        st.info("⚠️ **Modeling Notice:** Scenario C represents an illustrative exploratory response (e.g. activating discharge lounges, deploying flex surge beds, and prioritizing diagnostic triage). It is designed to assist operational discussions and does not guarantee clinical outcomes.")
+        st.caption(f"**Total Discharges:** {disrupted_res.total_discharges} | **Projected Bed Demand:** {disrupted_res.projected_bed_demand} beds")
 
     st.markdown("<br>", unsafe_allow_html=True)
 
     # -------------------------------------------------------------------------
-    # 6. Interactive Visualizations
+    # 5. Recommended Solutions Section (Tailored to Active Calculated Bottlenecks)
     # -------------------------------------------------------------------------
-    st.subheader("📈 Visual Comparison Across Scenarios")
+    st.subheader("💡 Recommended Solutions & Actionable Interventions")
+    st.caption("Context-aware operational strategies generated dynamically from active simulation bottlenecks. Check one or more solutions to simulate and compare against the disrupted baseline.")
+
+    # Generate tailored solution candidates based on active calculated bottlenecks
+    available_solutions = generate_scenario_tailored_solutions(
+        disrupted_res=disrupted_res,
+        summary=summary,
+        df_departments=df_departments,
+        additional_arrivals=additional_arrivals,
+        ct_scanner_status=ct_scanner_status,
+        discharge_delay=discharge_delay,
+        duration_hours=duration_hours
+    )
+
+    feasible_solutions = [s for s in available_solutions if s.feasibility.is_feasible]
+    infeasible_solutions = [s for s in available_solutions if not s.feasibility.is_feasible]
+
+    # Render Feasible Solution Selection Cards
+    selected_solution_ids = []
+    
+    col_cards = st.columns(min(3, max(1, len(feasible_solutions))))
+    for idx, sol in enumerate(feasible_solutions):
+        target_col = col_cards[idx % len(col_cards)]
+        with target_col:
+            # Default first two solutions checked for immediate interactive comparison
+            is_default = (idx < 2)
+            chk_val = st.checkbox(
+                f"**Test: {sol.title}**",
+                key=f"chk_sol_{sol.id}",
+                value=is_default,
+                help=f"Select to simulate and compare {sol.title} under identical initial conditions."
+            )
+            if chk_val:
+                selected_solution_ids.append(sol.id)
+
+            st.markdown(f"""
+            <div class="sol-card sol-feasible-border">
+                <div style="margin-bottom: 6px;">
+                    <span class="badge-category">{sol.category}</span>
+                    <span class="badge-feasible">🟢 FEASIBLE</span>
+                    <span class="badge-evidence">{sol.evidence_quality}</span>
+                </div>
+                <div style="font-weight: 700; color: #0f172a; font-size: 0.95rem; margin-bottom: 4px;">
+                    🎯 Addresses: {sol.target_bottleneck}
+                </div>
+                <div style="font-size: 0.85rem; color: #334155; margin-bottom: 8px;">
+                    {sol.description}
+                </div>
+                <div style="font-size: 0.8rem; color: #64748b; margin-bottom: 4px;">
+                    <strong>Why it helps:</strong> {sol.operational_rationale}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            with st.expander(f"🔍 Details & Evidence: {sol.title}", expanded=False):
+                st.markdown(f"**Target Bottleneck:** {sol.target_bottleneck}")
+                st.markdown(f"**Supporting Evidence:** {sol.evidence_summary}")
+                st.markdown(f"**Action Plan:**\n{sol.action_plan}")
+                st.markdown("**Model Assumptions:**")
+                for assump in sol.assumptions:
+                    st.markdown(f"- {assump}")
+                st.markdown(f"**Evidence Quality Label:** `{sol.evidence_quality}`")
+                st.markdown(f"**Missing Data / Model Limitations:** {sol.limitations_or_missing_data}")
+                st.markdown(f"**Required Human Approval:** `{sol.required_human_approval}`")
+                st.markdown(f"**Clinical Priority Safeguard:** {sol.clinical_priority_safeguard}")
+
+    # Operational Safety Tests Expander (Infeasible candidates to demonstrate safety enforcement)
+    with st.expander("🛡️ Operational Safety Tests (Verify Rejection of Infeasible Actions)", expanded=False):
+        st.caption("Demonstrates the safety engine: Attempting actions that strip nurse staffing below statutory floors or exceed licensed physical capacity will be rejected with explicit rationale instead of being simulated.")
+        col_inf1, col_inf2 = st.columns(2)
+        for idx, sol in enumerate(infeasible_solutions):
+            target_inf_col = col_inf1 if idx % 2 == 0 else col_inf2
+            with target_inf_col:
+                chk_inf = st.checkbox(
+                    f"**Test Safety Rejection: {sol.title}**",
+                    key=f"chk_inf_{sol.id}",
+                    value=False,
+                    help="Attempting to simulate this intervention will trigger an operational safety rejection."
+                )
+                if chk_inf:
+                    selected_solution_ids.append(sol.id)
+
+                reasons_str = "<br>• ".join(sol.feasibility.rejection_reasons)
+                st.markdown(f"""
+                <div class="sol-card sol-infeasible-border">
+                    <div style="margin-bottom: 6px;">
+                        <span class="badge-category">{sol.category}</span>
+                        <span class="badge-infeasible">🔴 INFEASIBLE</span>
+                    </div>
+                    <div style="font-weight: 700; color: #991b1b; font-size: 0.92rem; margin-bottom: 4px;">
+                        {sol.title}
+                    </div>
+                    <div style="font-size: 0.83rem; color: #7f1d1d; margin-bottom: 6px;">
+                        <strong>Rejection Reasons:</strong><br>• {reasons_str}
+                    </div>
+                    <div style="font-size: 0.78rem; color: #450a0a;">
+                        <strong>Regulatory Rule:</strong> {sol.clinical_priority_safeguard}
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # 6. Simulate, Enforce Feasibility & Rank Selected Solutions
+    # -------------------------------------------------------------------------
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_cmp_btn1, col_cmp_btn2 = st.columns([1, 3])
+    with col_cmp_btn1:
+        run_cmp_btn = st.button("🚀 Run Scenario Comparison", type="primary", use_container_width=True)
+    with col_cmp_btn2:
+        st.caption(f"Evaluating **{len(selected_solution_ids)} selected scenario(s)** under identical initial conditions (280 licensed beds, 238 occupied, 34 waiting, 6 CT queue) across {duration_hours} hours.")
+
+    ranked_evaluations, best_evaluation = simulate_and_rank_solutions(
+        selected_solution_ids=selected_solution_ids,
+        available_solutions=available_solutions,
+        duration_hours=duration_hours,
+        additional_arrivals=additional_arrivals,
+        ct_scanner_status=ct_scanner_status,
+        discharge_delay=discharge_delay,
+        disrupted_res=disrupted_res
+    )
+
+    # Render Infeasibility Warnings for any rejected actions
+    for ev in ranked_evaluations:
+        if not ev.is_feasible:
+            st.markdown(f"""
+            <div style="background-color: #fef2f2; border: 1px solid #fecaca; border-left: 5px solid #dc2626; padding: 14px 18px; border-radius: 8px; margin-bottom: 14px;">
+                <strong style="color: #991b1b; font-size: 0.95rem;">🚨 Operational Safeguard Enforced: Solution Rejected</strong><br>
+                <span style="font-size: 0.88rem; color: #450a0a;">
+                    <strong>{ev.solution.title}</strong> cannot be simulated. <strong>Reason:</strong> {ev.rejection_explanation}<br>
+                    <em>Minimum staffing regulations and physical licensed capacity limits strictly prevent executing this intervention.</em>
+                </span>
+            </div>
+            """, unsafe_allow_html=True)
+
+    # Render Best Feasible Option Banner (Requirement 6)
+    if best_evaluation:
+        imp = best_evaluation.impact
+        st.markdown(f"""
+        <div class="best-option-banner">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; margin-bottom: 6px;">
+                <div style="font-weight: 800; font-size: 1.15rem; color: #065f46;">
+                    🏆 Recommended Best Feasible Option: {best_evaluation.solution.title}
+                </div>
+                <div>
+                    <span class="badge-feasible">RANK #1 FEASIBLE</span>
+                    <span style="background: #dcfce7; color: #166534; font-size: 0.75rem; font-weight: 700; padding: 2px 8px; border-radius: 9999px; border: 1px solid #86efac;">Score: {best_evaluation.objective_score}</span>
+                </div>
+            </div>
+            <div style="font-size: 0.92rem; color: #1e293b; margin-bottom: 8px;">
+                <strong>Selection Rationale:</strong> {best_evaluation.selection_rationale}
+            </div>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; font-size: 0.88rem; color: #0f172a;">
+                <span>• <strong>Waiting Queue Relief:</strong> <span style="color: #16a34a; font-weight: 700;">{imp.delta_waiting} ({imp.pct_waiting:.1f}%)</span></span>
+                <span>• <strong>Available Beds Restored:</strong> <span style="color: #16a34a; font-weight: 700;">+{imp.delta_available} ({imp.pct_available:.1f}%)</span></span>
+                <span>• <strong>CT Wait Time:</strong> <span style="color: #16a34a; font-weight: 700;">{imp.delta_ct_wait} min ({imp.pct_ct_wait:.1f}%)</span></span>
+                <span>• <strong>Total Discharges:</strong> <span style="color: #16a34a; font-weight: 700;">+{imp.delta_discharges}</span></span>
+            </div>
+            <div style="font-size: 0.82rem; color: #047857; background: #ffffff; padding: 8px 12px; border-radius: 6px; border: 1px solid #bbf7d0;">
+                🔒 <strong>Advisory Decision Support Notice:</strong> This ranking is calculated using operational flow objectives (queue minimization and bed availability) subject to synthetic model constraints. Authorized clinical and administrative leadership review is required. No patient transfers, discharges, or treatment alterations are automated.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif not any(e.is_feasible for e in ranked_evaluations):
+        st.info("ℹ️ No feasible intervention is currently selected. Select one or more feasible operational interventions above to test their simulated impact.")
+
+    # -------------------------------------------------------------------------
+    # 7. Comprehensive Scenario Comparison Table (Requirement 2 & 3)
+    # -------------------------------------------------------------------------
+    feasible_evals = [e for e in ranked_evaluations if e.is_feasible and e.sim_result is not None]
+
+    st.subheader("📋 Scenario Impact Comparison Table")
+    st.caption("Side-by-side comparison of baseline, disrupted, and each simulated intervention showing absolute values, absolute changes (Δ), and percentage changes (%) vs Disrupted.")
+
+    # Build comparison table dictionary
+    table_rows = [
+        "Occupied Beds",
+        "Bed Occupancy Rate (%)",
+        "Available Beds",
+        "Patients Waiting for Bed (Unmet Demand)",
+        "CT Scanner Queue (Patients)",
+        "Estimated CT Wait Time (Minutes)",
+        "Total Patient Discharges",
+        "Operational Feasibility Status"
+    ]
+
+    comp_dict: Dict[str, List[Any]] = {
+        "Metric / Indicator": table_rows,
+        "Baseline (Normal)": [
+            f"{baseline_res.final_occupied} / {baseline_res.total_beds}",
+            f"{baseline_res.final_occupancy_pct}%",
+            f"{baseline_res.final_available}",
+            f"{baseline_res.final_waiting}",
+            f"{baseline_res.final_ct_queue}",
+            f"{baseline_res.est_ct_wait_mins} min",
+            f"{baseline_res.total_discharges}",
+            "Feasible (Standard)"
+        ],
+        "Disrupted (Active)": [
+            f"{disrupted_res.final_occupied} / {disrupted_res.total_beds}",
+            f"{disrupted_res.final_occupancy_pct}%",
+            f"{disrupted_res.final_available}",
+            f"{disrupted_res.final_waiting}",
+            f"{disrupted_res.final_ct_queue}",
+            f"{disrupted_res.est_ct_wait_mins} min",
+            f"{disrupted_res.total_discharges}",
+            "Disrupted"
+        ]
+    }
+
+    for ev in feasible_evals:
+        sim = ev.sim_result
+        imp = ev.impact
+        short_title = ev.solution.title.split(":")[0] if ":" in ev.solution.title else ev.solution.title
+        
+        # Format metric values with Δ and % change vs Disrupted
+        col_name = f"{short_title}"
+        col_vals = [
+            f"{sim.final_occupied} / {sim.total_beds} ({'+' if imp.delta_occupied >= 0 else ''}{imp.delta_occupied}, {imp.pct_occupied:+.1f}%)",
+            f"{sim.final_occupancy_pct}%",
+            f"{sim.final_available} ({'+' if imp.delta_available >= 0 else ''}{imp.delta_available}, {imp.pct_available:+.1f}%)",
+            f"{sim.final_waiting} ({imp.delta_waiting:+d}, {imp.pct_waiting:+.1f}%)",
+            f"{sim.final_ct_queue} ({imp.delta_ct_queue:+d}, {imp.pct_ct_queue:+.1f}%)",
+            f"{sim.est_ct_wait_mins} min ({imp.delta_ct_wait:+d} min, {imp.pct_ct_wait:+.1f}%)",
+            f"{sim.total_discharges} ({'+' if imp.delta_discharges >= 0 else ''}{imp.delta_discharges}, {imp.pct_discharges:+.1f}%)",
+            f"FEASIBLE (Rank #{ev.rank})"
+        ]
+        comp_dict[col_name] = col_vals
+
+    df_comp = pd.DataFrame(comp_dict)
+    st.dataframe(df_comp, use_container_width=True, hide_index=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # -------------------------------------------------------------------------
+    # 8. Interactive Visualizations (Across All Tested Scenarios)
+    # -------------------------------------------------------------------------
+    st.subheader("📈 Visual Comparison Across Tested Scenarios")
 
     tab_vis1, tab_vis2, tab_vis3 = st.tabs([
         "🛏️ Bed Capacity & Unmet Demand",
@@ -831,44 +1160,51 @@ def render_what_if_simulator():
     ])
 
     with tab_vis1:
-        st.caption("Comparison of Occupied Beds, Available Beds, and Unmet Demand (Patients Waiting) across scenarios")
-        # Bar chart comparing bed status
+        st.caption("Comparison of Occupied Beds, Available Beds, and Unmet Demand (Patients Waiting) across all tested scenarios")
         fig_beds = go.Figure()
-        scenarios = ["Baseline (Normal)", "Disrupted", "Proposed Response"]
-        occupied_vals = [baseline_res.final_occupied, disrupted_res.final_occupied, response_res.final_occupied]
-        available_vals = [baseline_res.final_available, disrupted_res.final_available, response_res.final_available]
-        waiting_vals = [baseline_res.final_waiting, disrupted_res.final_waiting, response_res.final_waiting]
+        
+        scen_labels = ["Baseline (Normal)", "Disrupted"]
+        occ_vals = [baseline_res.final_occupied, disrupted_res.final_occupied]
+        avail_vals = [baseline_res.final_available, disrupted_res.final_available]
+        wait_vals = [baseline_res.final_waiting, disrupted_res.final_waiting]
+
+        for ev in feasible_evals:
+            lbl = ev.solution.title.split(":")[0] if ":" in ev.solution.title else ev.solution.title
+            scen_labels.append(lbl)
+            occ_vals.append(ev.sim_result.final_occupied)
+            avail_vals.append(ev.sim_result.final_available)
+            wait_vals.append(ev.sim_result.final_waiting)
 
         fig_beds.add_trace(go.Bar(
             name="Occupied Beds",
-            x=scenarios,
-            y=occupied_vals,
+            x=scen_labels,
+            y=occ_vals,
             marker_color="#2563eb",
-            text=occupied_vals,
+            text=occ_vals,
             textposition="auto"
         ))
         fig_beds.add_trace(go.Bar(
             name="Available Beds",
-            x=scenarios,
-            y=available_vals,
+            x=scen_labels,
+            y=avail_vals,
             marker_color="#10b981",
-            text=available_vals,
+            text=avail_vals,
             textposition="auto"
         ))
         fig_beds.add_trace(go.Bar(
             name="Unmet Demand (Waiting for Bed)",
-            x=scenarios,
-            y=waiting_vals,
+            x=scen_labels,
+            y=wait_vals,
             marker_color="#ef4444",
-            text=waiting_vals,
+            text=wait_vals,
             textposition="auto"
         ))
 
         fig_beds.update_layout(
             barmode="stack",
             height=400,
-            xaxis_title="Simulation Scenario",
-            yaxis_title="Total Number of Patients / Beds",
+            xaxis_title="Operational Scenario",
+            yaxis_title="Total Patients / Beds",
             template="plotly_white",
             legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
             margin=dict(l=20, r=20, t=30, b=20)
@@ -876,8 +1212,7 @@ def render_what_if_simulator():
         st.plotly_chart(fig_beds, use_container_width=True)
 
     with tab_vis2:
-        st.caption(f"Hour-by-hour trajectory of patients waiting for an inpatient bed over {duration_hours} hours")
-        # Line chart of waiting queue over time
+        st.caption(f"Hour-by-hour trajectory of patients waiting for an inpatient bed over {duration_hours} hours across scenarios")
         fig_queue = go.Figure()
 
         fig_queue.add_trace(go.Scatter(
@@ -891,20 +1226,25 @@ def render_what_if_simulator():
             x=disrupted_res.hourly_df["Hour"],
             y=disrupted_res.hourly_df["Patients Waiting"],
             mode="lines+markers",
-            name="Disrupted",
+            name="Disrupted (Active)",
             line=dict(color="#ef4444", width=3, dash="solid")
         ))
-        fig_queue.add_trace(go.Scatter(
-            x=response_res.hourly_df["Hour"],
-            y=response_res.hourly_df["Patients Waiting"],
-            mode="lines+markers",
-            name="Proposed Response",
-            line=dict(color="#10b981", width=2.5, dash="dot")
-        ))
+
+        line_colors = ["#10b981", "#8b5cf6", "#06b6d4", "#f59e0b", "#ec4899"]
+        for idx, ev in enumerate(feasible_evals):
+            col_line = line_colors[idx % len(line_colors)]
+            lbl = ev.solution.title.split(":")[0] if ":" in ev.solution.title else ev.solution.title
+            fig_queue.add_trace(go.Scatter(
+                x=ev.sim_result.hourly_df["Hour"],
+                y=ev.sim_result.hourly_df["Patients Waiting"],
+                mode="lines+markers",
+                name=lbl,
+                line=dict(color=col_line, width=2.5, dash="dot")
+            ))
 
         fig_queue.update_layout(
             height=400,
-            xaxis_title="Simulation Timeline",
+            xaxis_title="Simulation Timeline (Hours)",
             yaxis_title="Patients Waiting in Queue",
             hovermode="x unified",
             template="plotly_white",
@@ -914,7 +1254,7 @@ def render_what_if_simulator():
         st.plotly_chart(fig_queue, use_container_width=True)
 
     with tab_vis3:
-        st.caption("Diagnostic CT Scanner backlog and estimated wait times across the simulation hours")
+        st.caption("Diagnostic CT Scanner backlog and estimated wait times across tested scenarios")
         col_diag_l, col_diag_r = st.columns(2)
 
         with col_diag_l:
@@ -933,15 +1273,20 @@ def render_what_if_simulator():
                 name="Disrupted Queue",
                 line=dict(color="#ef4444", width=2.5)
             ))
-            fig_ct_q.add_trace(go.Scatter(
-                x=response_res.hourly_df["Hour"],
-                y=response_res.hourly_df["CT Queue"],
-                mode="lines+markers",
-                name="Response Queue",
-                line=dict(color="#10b981", width=2)
-            ))
+
+            for idx, ev in enumerate(feasible_evals):
+                col_line = line_colors[idx % len(line_colors)]
+                lbl = ev.solution.title.split(":")[0] if ":" in ev.solution.title else ev.solution.title
+                fig_ct_q.add_trace(go.Scatter(
+                    x=ev.sim_result.hourly_df["Hour"],
+                    y=ev.sim_result.hourly_df["CT Queue"],
+                    mode="lines+markers",
+                    name=f"{lbl} Queue",
+                    line=dict(color=col_line, width=2)
+                ))
+
             fig_ct_q.update_layout(
-                title="CT Scan Queue Length",
+                title="CT Scan Queue Length (Patients)",
                 height=340,
                 xaxis_title="Simulation Timeline",
                 yaxis_title="Patients in CT Queue",
@@ -951,12 +1296,22 @@ def render_what_if_simulator():
             st.plotly_chart(fig_ct_q, use_container_width=True)
 
         with col_diag_r:
+            ct_scen_labels = ["Baseline", "Disrupted"]
+            ct_wait_vals = [baseline_res.est_ct_wait_mins, disrupted_res.est_ct_wait_mins]
+            ct_bar_colors = ["#2563eb", "#ef4444"]
+
+            for idx, ev in enumerate(feasible_evals):
+                lbl = ev.solution.title.split(":")[0] if ":" in ev.solution.title else ev.solution.title
+                ct_scen_labels.append(lbl)
+                ct_wait_vals.append(ev.sim_result.est_ct_wait_mins)
+                ct_bar_colors.append(line_colors[idx % len(line_colors)])
+
             fig_ct_wait = go.Figure()
             fig_ct_wait.add_trace(go.Bar(
-                x=["Baseline", "Disrupted", "Proposed Response"],
-                y=[baseline_res.est_ct_wait_mins, disrupted_res.est_ct_wait_mins, response_res.est_ct_wait_mins],
-                marker_color=["#2563eb", "#ef4444", "#10b981"],
-                text=[f"{baseline_res.est_ct_wait_mins} min", f"{disrupted_res.est_ct_wait_mins} min", f"{response_res.est_ct_wait_mins} min"],
+                x=ct_scen_labels,
+                y=ct_wait_vals,
+                marker_color=ct_bar_colors,
+                text=[f"{v} min" for v in ct_wait_vals],
                 textposition="auto"
             ))
             fig_ct_wait.update_layout(
@@ -1048,34 +1403,17 @@ def main():
     if "Dashboard" in selected_page:
         render_dashboard(summary, df_arrivals, df_departments, df_resources)
 
+    elif "Decision Intelligence" in selected_page:
+        render_decision_intelligence(summary, df_departments, df_resources)
+
     elif "Simulator" in selected_page:
-        render_what_if_simulator()
+        render_what_if_simulator(summary, df_departments, df_resources)
 
     elif "Bottleneck" in selected_page:
-        render_future_phase(
-            page_name="Bottleneck Detection & Recommendations",
-            phase_number="3",
-            feature_description="Algorithmic identification of hospital flow constraints and actionable recommendations to relieve unit pressure.",
-            planned_capabilities=[
-                "Automated detection of acute capacity bottlenecks across wards and diagnostic units.",
-                "Workload balancing suggestions for nursing and medical staff.",
-                "Actionable recommendations (e.g., fast-tracking low-acuity discharge, diverting elective scans).",
-                "Root-cause drilldowns for delays in patient transfer times."
-            ]
-        )
+        render_bottleneck_analysis(summary, df_departments, df_resources)
 
     elif "Forecasting" in selected_page:
-        render_future_phase(
-            page_name="Patient Arrival Forecasting",
-            phase_number="4",
-            feature_description="Proactive arrival projections to help hospital management prepare bed and staffing capacity ahead of time.",
-            planned_capabilities=[
-                "Short-term patient arrival predictions based on historical synthetic trends.",
-                "Seasonal and day-of-week surge pattern indicators.",
-                "Proactive staffing and bed reserve alerts before peak arrival hours.",
-                "Interactive scenario-based forecast adjustments."
-            ]
-        )
+        render_patient_forecasting(summary, df_departments, df_resources)
 
 
 if __name__ == "__main__":

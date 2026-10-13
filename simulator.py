@@ -73,12 +73,13 @@ def run_scenario_step_by_step(
     - Occupied beds never exceed physical total_beds.
     - Available beds is always >= 0.
     - Excess demand rolls directly into the waiting queue.
+    - Numerical outputs respond dynamically to surge arrivals, discharge rates, and duration.
     - No negative numbers are generated.
     """
-    # 24-hour baseline arrival curve (realistic diurnal pattern)
+    # 24-hour baseline arrival curve (realistic diurnal hospital pattern)
     hourly_base_arrivals = [8, 6, 5, 4, 4, 5, 7, 10, 13, 15, 14, 13, 14, 15, 16, 14, 12, 10, 9, 8, 7, 6, 5, 4]
     # Baseline CT scan demand pattern (scans requested per hour)
-    hourly_base_ct_demands = [4, 3, 3, 2, 2, 3, 4, 6, 7, 8, 7, 6, 7, 8, 8, 7, 6, 5, 5, 4, 4, 3, 3, 3]
+    hourly_base_ct_demands = [3, 2, 2, 2, 2, 3, 4, 6, 7, 7, 6, 6, 7, 7, 7, 6, 5, 4, 4, 3, 3, 2, 2, 2]
 
     occupied_beds = initial_occupied
     waiting_queue = initial_waiting
@@ -90,6 +91,11 @@ def run_scenario_step_by_step(
     total_ct_completed = 0
     peak_waiting = initial_waiting
 
+    # Float accumulators for fractional rates across hours
+    discharge_accumulator = 0.0
+    ct_demand_accumulator = 0.0
+    ct_capacity_accumulator = 0.0
+
     hourly_rows = []
 
     # Distribute additional arrivals smoothly across the duration
@@ -100,17 +106,22 @@ def run_scenario_step_by_step(
         base_arr = hourly_base_arrivals[(h - 1) % len(hourly_base_arrivals)]
         total_hour_arrivals = round(base_arr + extra_arrival_rate)
 
-        # Proportion needing inpatient bed admission (~35%)
-        new_bed_requests = round(total_hour_arrivals * 0.35)
+        # Proportion needing inpatient bed admission (~35% for baseline, +40% for surge acuity)
+        base_need = round(base_arr * 0.35)
+        extra_need = round(extra_arrival_rate * 0.40)
+        new_bed_requests = base_need + extra_need
         total_bed_demand += new_bed_requests
 
         # 2. Patient Discharges
         # Only currently occupied beds can be discharged
-        hour_discharges = min(round(discharge_rate_hourly), occupied_beds)
+        discharge_accumulator += discharge_rate_hourly
+        hour_discharges = min(occupied_beds, int(discharge_accumulator))
+        discharge_accumulator -= hour_discharges
+
         occupied_beds = max(0, occupied_beds - hour_discharges)
         total_discharges += hour_discharges
 
-        # Physical available beds right now
+        # Physical available beds right now before admissions
         available_beds = max(0, total_beds - occupied_beds)
 
         # 3. Patient Admissions
@@ -118,8 +129,8 @@ def run_scenario_step_by_step(
         waiting_queue += new_bed_requests
 
         # Admissions are constrained by:
-        # a) Physical available beds
-        # b) Hospital intake processing capacity (staff turnover rate)
+        # a) Physical available beds (cannot exceed total_beds)
+        # b) Clinical intake turnover bandwidth
         admitted = min(waiting_queue, available_beds, max_admission_intake_hourly)
         occupied_beds += admitted
         waiting_queue = max(0, waiting_queue - admitted)
@@ -131,12 +142,18 @@ def run_scenario_step_by_step(
 
         # 4. Diagnostic CT Scanner Workflow
         base_ct = hourly_base_ct_demands[(h - 1) % len(hourly_base_ct_demands)]
-        extra_ct = round(extra_arrival_rate * 0.28)  # ~28% of surge arrivals require CT imaging
-        hour_ct_demand = base_ct + extra_ct
+        extra_ct = extra_arrival_rate * 0.32  # ~32% of surge arrivals require CT imaging
+        ct_demand_accumulator += (base_ct + extra_ct)
+        new_ct_requests = int(ct_demand_accumulator)
+        ct_demand_accumulator -= new_ct_requests
 
-        # Scans completed this hour
-        possible_scans = min(ct_queue + hour_ct_demand, round(ct_capacity_hourly))
-        ct_queue = max(0, ct_queue + hour_ct_demand - round(ct_capacity_hourly))
+        ct_queue += new_ct_requests
+
+        ct_capacity_accumulator += ct_capacity_hourly
+        possible_scans = min(ct_queue, int(ct_capacity_accumulator))
+        ct_capacity_accumulator -= possible_scans
+
+        ct_queue = max(0, ct_queue - possible_scans)
         total_ct_completed += possible_scans
 
         est_ct_wait_minutes = round((ct_queue / max(1.0, ct_capacity_hourly)) * 60)
@@ -160,9 +177,9 @@ def run_scenario_step_by_step(
     final_ct_wait = round((ct_queue / max(1.0, ct_capacity_hourly)) * 60)
 
     # Automated Primary Bottleneck Classification
-    if final_occupancy_pct >= 96.0 or waiting_queue >= 20:
+    if final_occupancy_pct >= 95.0 or waiting_queue >= 25:
         bottleneck = "Inpatient Bed Shortage (Critical Bed Saturation)"
-    elif final_ct_wait >= 100 or ct_queue >= 15:
+    elif final_ct_wait >= 90 or ct_queue >= 15:
         bottleneck = "Diagnostic Bottleneck (CT Scanner Backlog)"
     elif discharge_rate_hourly <= 3.2:
         bottleneck = "Discharge Processing Delay (Bed Turnover Congestion)"
@@ -228,9 +245,9 @@ def run_hospital_what_if_simulation(
     # -------------------------------------------------------------------------
     baseline_assumptions = [
         "Normal baseline patient arrival volume (0 unexpected surge arrivals).",
-        "Both CT diagnostic scanners operational (8 scans/hour throughput).",
+        "Both CT diagnostic scanners operational (8.0 scans/hour throughput).",
         "Standard discharge rate maintained (~5.5 discharges/hour).",
-        "Staffing admission processing capacity at normal level (6 admissions/hour).",
+        "Staffing admission processing capacity at normal level (12 admissions/hour).",
         "Physical bed capacity strictly maintained at 280 beds."
     ]
     baseline = run_scenario_step_by_step(
@@ -245,7 +262,7 @@ def run_hospital_what_if_simulation(
         initial_ct_queue=base_initial_ct_queue,
         additional_arrivals_total=0,
         discharge_rate_hourly=5.5,
-        max_admission_intake_hourly=6,
+        max_admission_intake_hourly=12,
         ct_capacity_hourly=8.0,
         ct_status_label="Available (Both Units Operational)"
     )
@@ -256,13 +273,13 @@ def run_hospital_what_if_simulation(
     is_ct_down = (ct_scanner_status == "Unavailable" or "Outage" in ct_scanner_status)
     disrupted_ct_cap = 3.8 if is_ct_down else 8.0
     disrupted_ct_label = "Unavailable (1 Scanner Down - 50% Outage)" if is_ct_down else "Available (Both Operational)"
-    disrupted_discharge_rate = 2.6 if discharge_delay else 5.5
-    disrupted_intake_rate = 5 if is_ct_down else 6  # Diagnostic delay slightly slows admission workup
+    disrupted_discharge_rate = 2.4 if discharge_delay else 5.5
+    disrupted_intake_rate = 10 if is_ct_down else 12  # Diagnostic delay slightly slows admission workup
 
     disrupted_assumptions = [
         f"Unexpected Surge Arrivals: +{additional_arrivals} additional patients arriving across {duration_hours} hours.",
         f"CT Scanner Status: {disrupted_ct_label} ({disrupted_ct_cap:.1f} scans/hour capacity).",
-        f"Patient Discharge Delay: {'ON (Discharges dropped to ~2.6/hr due to clearance & transport delays)' if discharge_delay else 'OFF (Standard ~5.5 discharges/hr)'}.",
+        f"Patient Discharge Delay: {'ON (Discharges dropped to ~2.4/hr due to clearance & transport delays)' if discharge_delay else 'OFF (Standard ~5.5 discharges/hr)'}.",
         "Physical bed capacity strictly capped at 280 beds (zero overflow beds available)."
     ]
     disrupted = run_scenario_step_by_step(
@@ -285,22 +302,23 @@ def run_hospital_what_if_simulation(
     # -------------------------------------------------------------------------
     # Scenario C: Proposed Response (Illustrative Response Strategy)
     # -------------------------------------------------------------------------
-    # Proactive operational responses modeled:
-    # 1. Flex Surge Beds: If surge arrivals >= 25, deploy +12 temporary flex observation beds.
-    # 2. Discharge Coordination: If discharge delays exist, activate dedicated discharge lounge (+3.4 discharges/hr).
-    # 3. Diagnostic Contingency: If CT scanner is down, divert non-emergency elective scans & utilize emergency mobile CT protocol.
-    flex_beds = 12 if additional_arrivals >= 25 else 0
+    # Explicit mitigation assumptions:
+    # 1. Surge Flex Beds: If surge arrivals >= 20, open +12 temporary flex observation beds.
+    # 2. Discharge Acceleration: If discharge delays exist, activate dedicated discharge lounge (+3.4/hr).
+    # 3. Diagnostic Priority Protocol: If CT is down, divert elective scans offsite & deploy mobile CT (+3.0/hr).
+    # 4. Rapid intake team: Expands admission intake bandwidth up to 15 patients/hr.
+    flex_beds = 12 if additional_arrivals >= 20 else 0
     response_total_beds = base_total_beds + flex_beds
 
-    response_discharge_rate = 6.2 if discharge_delay else 5.8
-    response_ct_cap = 7.0 if is_ct_down else 8.0
-    response_ct_label = "Emergency Protocol Active (7.0 scans/hr)" if is_ct_down else "Available"
-    response_intake_rate = 7  # Expedited triage nursing intake team
+    response_discharge_rate = 5.8 if discharge_delay else 6.0
+    response_ct_cap = 6.8 if is_ct_down else 8.0
+    response_ct_label = "Emergency Protocol Active (6.8 scans/hr)" if is_ct_down else "Available"
+    response_intake_rate = 15  # Expedited triage nursing intake team
 
     response_assumptions = [
         f"Surge Bed Activation: {'+12 Temporary observation flex beds opened (Total: 292 beds)' if flex_beds > 0 else 'Standard 280 beds maintained'}.",
-        f"Discharge Acceleration: {'Dedicated Discharge Lounge activated (+3.6 discharges/hr expedited)' if discharge_delay else 'Standard discharge coordination'}.",
-        f"Diagnostic Priority Protocol: {'Divert elective scans offsite & deploy fast emergency CT protocol' if is_ct_down else 'Standard diagnostic throughput'}.",
+        f"Discharge Acceleration: {'Dedicated Discharge Lounge activated (~5.8 discharges/hr expedited)' if discharge_delay else 'Standard discharge coordination'}.",
+        f"Diagnostic Priority Protocol: {'Divert elective scans offsite & deploy fast emergency CT protocol (~6.8 scans/hr)' if is_ct_down else 'Standard diagnostic throughput'}.",
         "Illustrative model: results represent prospective exploratory mitigation, not guaranteed clinical outcomes."
     ]
     response = run_scenario_step_by_step(
