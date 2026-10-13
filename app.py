@@ -25,68 +25,145 @@ from simulator import run_hospital_what_if_simulation, ScenarioResult
 # 1. Page Configuration & Theme
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="MediFlow AI — Hospital Resource Dashboard",
+    page_title="MediFlow AI — Intelligent Hospital Resource Optimization",
     page_icon="🏥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for polished hackathon presentation styling
+# Custom CSS for polished, modern enterprise healthcare product UI
 st.markdown("""
 <style>
-    /* Metric card styling */
-    div[data-testid="stMetric"] {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        padding: 14px 18px;
-        border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        transition: transform 0.15s ease, box-shadow 0.15s ease;
-    }
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    /* Global Typography & Font Smoothing */
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     
-    /* Header badge */
+    /* Global Brand Header */
+    .brand-header-box {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        padding: 18px 24px;
+        margin-bottom: 20px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+    }
+    .brand-title-text {
+        font-size: 1.85rem;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.025em;
+        margin: 0;
+        line-height: 1.2;
+    }
+    .brand-subtitle-text {
+        font-size: 0.98rem;
+        font-weight: 600;
+        color: #0284c7;
+        margin-top: 3px;
+        letter-spacing: 0.01em;
+    }
+    
+    /* System & Facility Badges */
+    .facility-badge {
+        display: inline-block;
+        background-color: #f1f5f9;
+        color: #334155;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        border: 1px solid #e2e8f0;
+        margin-right: 6px;
+    }
+    .live-telemetry-badge {
+        display: inline-block;
+        background-color: #f0fdf4;
+        color: #166534;
+        font-size: 0.8rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 9999px;
+        border: 1px solid #bbf7d0;
+    }
     .badge-demo {
         display: inline-block;
         background-color: #e0f2fe;
         color: #0369a1;
-        font-size: 0.82rem;
+        font-size: 0.78rem;
         font-weight: 600;
-        padding: 4px 10px;
+        padding: 3px 9px;
         border-radius: 9999px;
         border: 1px solid #bae6fd;
-        margin-bottom: 8px;
     }
     
-    /* Mission Callout */
-    .mission-card {
-        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-        border-left: 5px solid #0284c7;
+    /* Metric Cards */
+    div[data-testid="stMetric"] {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
         padding: 16px 20px;
-        border-radius: 8px;
-        margin-bottom: 24px;
-        color: #0f172a;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    div[data-testid="stMetric"]:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px -2px rgba(0, 0, 0, 0.06);
+        border-color: #cbd5e1;
     }
     
-    /* Future Phase placeholder card */
-    .future-card {
+    /* Simulator Feature Spotlight Card on Dashboard */
+    .sim-spotlight-card {
+        background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        border: 1px solid #bae6fd;
+        border-left: 5px solid #0284c7;
+        padding: 18px 22px;
+        border-radius: 12px;
+        margin-bottom: 22px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .sim-spotlight-badge {
+        display: inline-block;
+        background-color: #0284c7;
+        color: #ffffff;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+        text-transform: uppercase;
+    }
+    .sim-spotlight-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #0c4a6e;
+        margin: 0;
+    }
+    .sim-spotlight-desc {
+        font-size: 0.9rem;
+        color: #334155;
+        margin-top: 3px;
+        margin-bottom: 0;
+    }
+    
+    /* Sidebar promo box */
+    .sidebar-promo-box {
         background: #f8fafc;
-        border: 2px dashed #cbd5e1;
-        padding: 40px 30px;
-        border-radius: 16px;
-        text-align: center;
-        margin-top: 20px;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 12px 14px;
+        margin-top: 14px;
     }
     
-    /* Simulator styling */
+    /* Simulator Bottleneck Box */
     .bottleneck-box {
         background-color: #fff1f2;
         border-left: 5px solid #e11d48;
         padding: 16px 20px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 20px;
         color: #9f1239;
     }
@@ -94,10 +171,12 @@ st.markdown("""
         background-color: #f0fdf4;
         border-left: 5px solid #16a34a;
         padding: 16px 20px;
-        border-radius: 8px;
+        border-radius: 10px;
         margin-bottom: 20px;
         color: #166534;
     }
+    
+    /* Scenario comparison headers */
     .scenario-header {
         padding: 10px 14px;
         border-radius: 8px;
@@ -120,6 +199,17 @@ st.markdown("""
         background-color: #f0fdf4;
         color: #166534;
         border: 1px solid #bbf7d0;
+    }
+    
+    /* Product roadmap placeholder card */
+    .future-card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        padding: 36px 30px;
+        border-radius: 16px;
+        text-align: center;
+        margin-top: 16px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -230,12 +320,12 @@ def load_synthetic_hospital_data():
 # -----------------------------------------------------------------------------
 def render_sidebar():
     """
-    Renders the left sidebar containing navigation and demo metadata.
+    Renders the left sidebar containing navigation and facility metadata.
     """
     with st.sidebar:
         st.markdown("## 🏥 MediFlow AI")
         st.markdown(
-            "*Hospital Resource & Patient Flow Optimization Platform*"
+            "**Intelligent Hospital Resource Optimization**"
         )
         st.markdown("---")
 
@@ -244,7 +334,7 @@ def render_sidebar():
             "Select Page",
             options=[
                 "📊 Hospital Dashboard",
-                "🧪 What-If Simulator",
+                "⚡ What-If Simulator",
                 "⚠️ Bottleneck Analysis",
                 "🔮 Patient Forecasting"
             ],
@@ -253,13 +343,18 @@ def render_sidebar():
             label_visibility="collapsed"
         )
 
-        st.markdown("---")
-        st.markdown("### ⚙️ Demo Configuration")
-        st.info("🕒 **Active Shift:** Day Shift (08:00 - 16:00)\n\n📍 **Facility:** Metro General Hospital (Demo)")
+        st.markdown("""
+        <div class="sidebar-promo-box">
+            <div style="font-weight: 700; color: #0284c7; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em;">⚡ Core Engine</div>
+            <div style="font-size: 0.82rem; color: #334155; margin-top: 3px;">
+                <strong>What-If Simulator:</strong> Model acute surges, CT outages & discharge responses side-by-side.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown("---")
-        st.caption("🛡️ **Mode:** Synthetic Data Engine Active")
-        st.caption("Version: Phase 2 (What-If Simulator Active)")
+        st.markdown("### 🏥 Facility Status")
+        st.info("🕒 **Shift:** Day Shift (08:00 - 16:00)\n\n📍 **Site:** Metro General Hospital\n\n🟢 **Status:** Live (Demo Telemetry)")
 
     return page
 
@@ -269,19 +364,51 @@ def render_sidebar():
 # -----------------------------------------------------------------------------
 def render_dashboard(summary, df_arrivals, df_departments, df_resources):
     """
-    Renders the active Phase 1 Dashboard with KPIs, Plotly charts, and tables.
+    Renders the active Hospital Dashboard with KPIs, Plotly charts, and tables.
     """
-    # Header Section
-    st.markdown('<span class="badge-demo">SYNTHETIC DEMONSTRATION DATA</span>', unsafe_allow_html=True)
-    st.title("Hospital Resource & Patient Flow Dashboard")
-
-    # Short Explanation of Purpose
+    # Global Brand Header
     st.markdown("""
-    <div class="mission-card">
-        <strong>💡 Problem & Purpose:</strong>
-        Hospitals face acute challenges when handling sudden patient surges alongside limited physical beds,
-        stretched staff, and diagnostic delays. <strong>MediFlow AI</strong> delivers immediate situational awareness
-        across critical units so hospital administrators can identify flow constraints early and optimize resource utilization.
+    <div class="brand-header-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div class="brand-title-text">🏥 MediFlow AI</div>
+                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
+            </div>
+            <div>
+                <span class="facility-badge">📍 Metro General Hospital</span>
+                <span class="live-telemetry-badge">● Operational Telemetry Active</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Clean Page Header Row
+    col_dash_left, col_dash_right = st.columns([3, 1])
+    with col_dash_left:
+        st.subheader("Hospital Operations Dashboard")
+        st.caption("Continuous departmental census, patient inflow rate, and capacity utilization.")
+    with col_dash_right:
+        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SYNTHETIC DATA ENGINE</span></div>', unsafe_allow_html=True)
+
+    # Small Optional Information Section (Replaces long problem-statement banner)
+    with st.expander("ℹ️ About MediFlow AI & Operational Scope", expanded=False):
+        st.markdown("""
+        **MediFlow AI** provides real-time situational awareness across hospital beds, triage queues, 
+        and critical diagnostic equipment. Clinical operations teams use MediFlow AI to identify flow bottlenecks 
+        early and evaluate resource balancing strategies before bed shortages impact patient care.
+        """)
+
+    # Prominent Simulator Feature Spotlight Card
+    st.markdown("""
+    <div class="sim-spotlight-card">
+        <div>
+            <span class="sim-spotlight-badge">⚡ Core Differentiating Feature</span>
+            <div class="sim-spotlight-title">Hospital What-If Simulator</div>
+            <div class="sim-spotlight-desc">
+                Stress-test hospital capacity under sudden shocks: simulate +30 patient surges, CT scanner outages, 
+                and discharge delays side-by-side with prospective response strategies.
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -438,21 +565,40 @@ def render_dashboard(summary, df_arrivals, df_departments, df_resources):
 # -----------------------------------------------------------------------------
 def render_what_if_simulator():
     """
-    Renders the interactive Phase 2 Hospital What-If Simulator.
+    Renders the interactive Hospital What-If Simulator.
     Simulates acute operational disruptions and evaluates response strategies.
     """
-    st.markdown('<span class="badge-demo">HOSPITAL WHAT-IF STRESS TESTING • PHASE 2</span>', unsafe_allow_html=True)
-    st.title("Hospital What-If Simulator")
-
-    # Short Explanation of Purpose
+    # Global Brand Header
     st.markdown("""
-    <div class="mission-card">
-        <strong>🧪 Simulation Purpose:</strong>
-        Explore the operational consequences of sudden hospital disruptions—such as unexpected patient surges,
-        diagnostic equipment outages, and discharge delays—and evaluate illustrative response strategies
-        before testing decisions in live hospital environments.
+    <div class="brand-header-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div class="brand-title-text">🏥 MediFlow AI</div>
+                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
+            </div>
+            <div>
+                <span class="facility-badge">📍 Metro General Hospital</span>
+                <span class="live-telemetry-badge">⚡ Core Simulation Engine Active</span>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Clean Page Header Row
+    col_sim_left, col_sim_right = st.columns([3, 1])
+    with col_sim_left:
+        st.subheader("Hospital What-If Simulator")
+        st.caption("Interactive capacity stress-testing: evaluate sudden patient surges, diagnostic outages, and discharge interventions.")
+    with col_sim_right:
+        st.markdown('<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SCENARIO STRESS-TEST</span></div>', unsafe_allow_html=True)
+
+    # Small Optional Information Section
+    with st.expander("ℹ️ About Simulation Methodology & Assumptions", expanded=False):
+        st.markdown("""
+        The simulator executes a deterministic hour-by-hour resource flow model that strictly respects physical bed limits, 
+        admission turnover constraints, and diagnostic throughput. It compares **Baseline (Normal Operations)**, 
+        **Disrupted**, and **Proposed Response** scenarios side-by-side to assist clinical leaders in capacity planning.
+        """)
 
     # -------------------------------------------------------------------------
     # 1. Interactive Control Panel
@@ -845,28 +991,44 @@ def render_what_if_simulator():
 # -----------------------------------------------------------------------------
 def render_future_phase(page_name, phase_number, feature_description, planned_capabilities):
     """
-    Renders a friendly placeholder for upcoming phases (Bottlenecks, Forecasting).
+    Renders a modern product roadmap card for upcoming capabilities.
     """
-    st.title(page_name)
-    st.markdown(
-        f'<span class="badge-demo">SCHEDULED FOR PHASE {phase_number}</span>',
-        unsafe_allow_html=True
-    )
+    # Global Brand Header
+    st.markdown("""
+    <div class="brand-header-box">
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <div class="brand-title-text">🏥 MediFlow AI</div>
+                <div class="brand-subtitle-text">Intelligent Hospital Resource Optimization</div>
+            </div>
+            <div>
+                <span class="facility-badge">📍 Metro General Hospital</span>
+                <span class="live-telemetry-badge">🔮 Product Roadmap</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_fut_l, col_fut_r = st.columns([3, 1])
+    with col_fut_l:
+        st.subheader(page_name)
+    with col_fut_r:
+        st.markdown(f'<div style="text-align: right; padding-top: 6px;"><span class="badge-demo">SCHEDULED • PHASE {phase_number}</span></div>', unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="future-card">
-        <h2 style="color: #0284c7; margin-bottom: 8px;">🚀 Coming in Phase {phase_number}</h2>
-        <p style="font-size: 1.1rem; color: #475569; max-width: 700px; margin: 0 auto 24px auto;">
+        <h2 style="color: #0284c7; margin-bottom: 8px;">🚀 Planned for Phase {phase_number}</h2>
+        <p style="font-size: 1.05rem; color: #475569; max-width: 700px; margin: 0 auto 24px auto;">
             {feature_description}
         </p>
-        <div style="display: inline-block; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: left; max-width: 600px;">
+        <div style="display: inline-block; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; text-align: left; max-width: 600px;">
             <h4 style="margin-top: 0; color: #0f172a;">Planned Capabilities for this Module:</h4>
             <ul>
                 {"".join(f"<li style='margin-bottom: 8px;'>{cap}</li>" for cap in planned_capabilities)}
             </ul>
         </div>
         <p style="margin-top: 24px; color: #64748b; font-size: 0.9rem;">
-            <em>Current status: Phase 2 (What-If Simulator) is active. This feature will be introduced when transitioning to Phase {phase_number}.</em>
+            <em>Status: Module under active roadmap development. Available in upcoming version rollout.</em>
         </p>
     </div>
     """, unsafe_allow_html=True)
@@ -883,13 +1045,13 @@ def main():
     selected_page = render_sidebar()
 
     # Route to selected page
-    if selected_page == "📊 Hospital Dashboard":
+    if "Dashboard" in selected_page:
         render_dashboard(summary, df_arrivals, df_departments, df_resources)
 
-    elif selected_page == "🧪 What-If Simulator":
+    elif "Simulator" in selected_page:
         render_what_if_simulator()
 
-    elif selected_page == "⚠️ Bottleneck Analysis":
+    elif "Bottleneck" in selected_page:
         render_future_phase(
             page_name="Bottleneck Detection & Recommendations",
             phase_number="3",
@@ -902,7 +1064,7 @@ def main():
             ]
         )
 
-    elif selected_page == "🔮 Patient Forecasting":
+    elif "Forecasting" in selected_page:
         render_future_phase(
             page_name="Patient Arrival Forecasting",
             phase_number="4",
